@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-nautobot"
+version = "0.1.0"
+description = "FastMCP server for Nautobot"
+authors = [{name = "Nautobot MCP Team"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # "fastmcp==0.1.0",  # Removed due to dependency conflicts
+    "fastapi==0.104.1",
+    "uvicorn[standard]==0.24.0",
+    "requests==2.31.0",
+    "pydantic>=2.5.3",
+    "structlog==23.2.0",
+    "prometheus-client==0.19.0",
+    "python-dotenv==1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "black==23.12.1",
+    "isort==5.13.2",
+    "ruff==0.1.9",
+    "mypy==1.8.0",
+    "types-requests==2.31.0.20231225",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = ["E", "F", "I", "N", "W", "B", "C4", "UP"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
