@@ -60,26 +60,21 @@ services:
     environment:
       NAUTOBOT_URL: ${NAUTOBOT_URL:-http://nautobot:8080}
       NAUTOBOT_TOKEN: ${NAUTOBOT_TOKEN:-nautobot-mcp-token-1234567890abcdef}
-      GRAPHQL_PATH: ${GRAPHQL_PATH:-/graphql/}
+      GRAPHQL_PATH: ${GRAPHQL_PATH:-/api/graphql/}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MCP_API_KEY: ${MCP_API_KEY:-dev-mcp-key}
     depends_on:
       nautobot:
         condition: service_healthy
     ports:
-      - "7000:7000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7000/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
+      - "7001:7000"
     networks:
       - devnet
 
   chat-ui:
     build: ./services/chat-ui
     environment:
-      MCP_SERVERS: ${MCP_SERVERS:-[{"name":"nautobot","url":"http://mcp-nautobot:7000"}]}
+      MCP_SERVERS: '[{"name":"nautobot","url":"http://mcp-nautobot:7000"}]'
       DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
     volumes:
       - ./exports:/app/exports
@@ -87,6 +82,24 @@ services:
       - "8501:8501"
     depends_on:
       mcp-nautobot:
+        condition: service_started
+    networks:
+      - devnet
+
+  nautobot-init:
+    build: ./services/nautobot-init
+    environment:
+      NAUTOBOT_DB_HOST: db
+      NAUTOBOT_DB_NAME: ${POSTGRES_DB:-nautobot}
+      NAUTOBOT_DB_USER: ${POSTGRES_USER:-nautobot}
+      NAUTOBOT_DB_PASSWORD: ${POSTGRES_PASSWORD:-nautobot}
+      NAUTOBOT_REDIS_HOST: redis
+      NAUTOBOT_REDIS_PORT: 6379
+      NAUTOBOT_ALLOWED_HOSTS: "*"
+      NAUTOBOT_DEBUG: ${DEBUG:-true}
+      NAUTOBOT_SECRET_KEY: changeme-secret-key-for-development-only
+    depends_on:
+      nautobot:
         condition: service_healthy
     networks:
       - devnet
@@ -97,8 +110,8 @@ services:
       NAUTOBOT_URL: ${NAUTOBOT_URL:-http://nautobot:8080}
       NAUTOBOT_TOKEN: ${NAUTOBOT_TOKEN:-nautobot-mcp-token-1234567890abcdef}
     depends_on:
-      nautobot:
-        condition: service_healthy
+      nautobot-init:
+        condition: service_completed_successfully
     networks:
       - devnet
 

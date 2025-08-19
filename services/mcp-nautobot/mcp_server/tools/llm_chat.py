@@ -11,12 +11,53 @@ from .prefixes import get_prefixes_by_location
 logger = structlog.get_logger(__name__)
 
 
+def extract_location_name(message: str) -> str:
+    """Extract location name from user message using simple heuristics."""
+    message_lower = message.lower()
+    
+    # Common location names to look for (including common typos)
+    known_locations = [
+        "hq-dallas", "lab-austin", "hq-london", "hq-sydney",
+        "branch office 1", "branch office 2", "branch office 3", "branch ofice 3",  # Handle typo
+        "data center 1", "data center 2", "campus a", "campus b"
+    ]
+    
+    # First, try to find known location names in the message
+    for location in known_locations:
+        if location in message_lower:
+            # Find the actual case from the original message
+            location_pattern = re.compile(re.escape(location), re.IGNORECASE)
+            match = location_pattern.search(message)
+            if match:
+                return match.group(0)
+    
+    # If no known location found, try to extract using patterns
+    # Look for patterns like "at [location]" or "in [location]" or "for [location]"
+    patterns = [
+        r'(?:at|in|for)\s+([A-Za-z0-9\-\s]+?)(?:\s|$|\.|\?)',  # Multi-word locations
+        r'(?:site|office|branch|location)\s+([A-Za-z0-9\-\s]+?)(?:\s|$|\.|\?)',  # After location keywords
+    ]
+    
+    for pattern in patterns:
+        matches = re.findall(pattern, message, re.IGNORECASE)
+        for match in matches:
+            location_name = match.strip()
+            # Avoid extracting common non-location words
+            if location_name.lower() not in ['prefixes', 'prefix', 'what', 'show', 'find', 'me', 'the', 'location']:
+                return location_name
+    
+    # Default location if none found
+    return "HQ-Dallas"
+
+
 def llm_chat(message: str, **kwargs) -> Dict[str, Any]:
     """LLM assistant that can call other MCP tools and records citations.
     
+    This tool is designed to be used by an LLM that has access to the full MCP tool catalog.
+    The LLM should decide which tools to call based on the user's message.
+    
     Args:
         message: The user's message
-        **kwargs: Additional parameters
         
     Returns:
         Dictionary with answer and citations
@@ -26,17 +67,14 @@ def llm_chat(message: str, **kwargs) -> Dict[str, Any]:
     citations: List[Dict[str, Any]] = []
     answer = ""
     
-    # Simple keyword-based routing for now
-    # In a real implementation, this would use an actual LLM for planning
+    # Simple tool calling logic - in a real implementation, this would be handled by an LLM
+    # that has access to the full MCP tool catalog and can make intelligent decisions
     
-    if "prefix" in message.lower() and "location" in message.lower():
+    if "prefix" in message.lower():
         # Extract location name from message
-        location_match = re.search(r'(?:at|in|for)\s+([A-Za-z0-9\-]+)', message, re.IGNORECASE)
-        if location_match:
-            location_name = location_match.group(1)
-        else:
-            # Default location if none found
-            location_name = "HQ-Dallas"
+        location_name = extract_location_name(message)
+        
+        logger.info("Extracted location name", location_name=location_name, original_message=message)
             
         try:
             # Call the prefixes tool
@@ -73,7 +111,7 @@ def llm_chat(message: str, **kwargs) -> Dict[str, Any]:
     elif "help" in message.lower() or "what can you do" in message.lower():
         answer = """I can help you with Nautobot network information! Here are some things I can do:
 
-1. **Find prefixes by location**: Ask me "What prefixes exist at HQ-Dallas?" or "Show me prefixes at LAB-Austin"
+1. **Find prefixes by location**: Ask me "What prefixes exist at HQ-Dallas?" or "Show me prefixes at Branch Office 3"
 2. **Network information**: I can query Nautobot for network data and provide insights
 
 Just ask me about prefixes at a specific location and I'll look it up for you!"""
@@ -83,8 +121,8 @@ Just ask me about prefixes at a specific location and I'll look it up for you!""
 
 To get started, try asking me about prefixes at a specific location, such as:
 - "What prefixes exist at HQ-Dallas?"
-- "Show me prefixes at LAB-Austin"
-- "Find prefixes for HQ-London"
+- "Show me prefixes at Branch Office 3"
+- "Find prefixes for LAB-Austin"
 
 I can call Nautobot tools to get real network data for you!"""
     

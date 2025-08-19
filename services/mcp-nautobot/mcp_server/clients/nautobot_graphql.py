@@ -16,21 +16,17 @@ HEADERS = {"Authorization": f"Token {TOKEN}"} if TOKEN else {}
 
 PREFIXES_QUERY = """
 query PrefixesByLocation($name: String!) {
-  prefixes(filter: { site: { name: $name } }) {
-    edges {
-      node {
-        prefix
-        status {
-          value
-        }
-        role {
-          name
-        }
-        description
-        site {
-          name
-        }
-      }
+  prefixes(locations: [$name]) {
+    prefix
+    status {
+      name
+    }
+    role {
+      name
+    }
+    description
+    locations {
+      name
     }
   }
 }
@@ -74,30 +70,53 @@ class NautobotGraphQLClient:
             logger.error("GraphQL request failed", error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
+    def get_all_prefixes(self) -> List[Dict[str, Any]]:
+        """Get all prefixes."""
+        try:
+            data = self.query("query { prefixes { prefix status { name } role { name } description } }")
+            prefixes_data = data["data"]["prefixes"]
+            
+            prefixes = []
+            for prefix in prefixes_data:
+                prefix_data = {
+                    "prefix": prefix["prefix"],
+                    "status": (prefix["status"] or {}).get("name"),
+                    "role": (prefix["role"] or {}).get("name"),
+                    "description": prefix.get("description"),
+                }
+                prefixes.append(prefix_data)
+            
+            logger.info("Retrieved all prefixes", count=len(prefixes))
+            return prefixes
+        except Exception as e:
+            logger.error("Failed to get all prefixes", error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
     def get_prefixes_by_location(self, location_name: str) -> List[Dict[str, Any]]:
         """Get all prefixes for a given location name."""
         try:
             data = self.query(PREFIXES_QUERY, {"name": location_name})
-            edges = data["data"]["prefixes"]["edges"]
+            prefixes_data = data["data"]["prefixes"]
             
             prefixes = []
-            for edge in edges:
-                node = edge["node"]
+            for prefix in prefixes_data:
+                # Get location names from the locations array
+                location_names = [loc["name"] for loc in (prefix.get("locations") or [])]
+                
                 prefix_data = {
-                    "prefix": node["prefix"],
-                    "status": (node["status"] or {}).get("value"),
-                    "role": (node["role"] or {}).get("name"),
-                    "description": node.get("description"),
-                    "site": (node["site"] or {}).get("name"),
+                    "prefix": prefix["prefix"],
+                    "status": (prefix["status"] or {}).get("name"),
+                    "role": (prefix["role"] or {}).get("name"),
+                    "description": prefix.get("description"),
+                    "locations": location_names
                 }
                 prefixes.append(prefix_data)
             
-            logger.info("Retrieved prefixes", location=location_name, count=len(prefixes))
+            logger.info("Retrieved prefixes by location", location=location_name, count=len(prefixes))
             return prefixes
-            
         except Exception as e:
             logger.error("Failed to get prefixes by location", location=location_name, error=str(e))
-            raise
+            raise RuntimeError(f"GraphQL request failed: {e}")
 
 
 # Global client instance

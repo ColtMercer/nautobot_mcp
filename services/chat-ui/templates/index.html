@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #e6edf3;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+
+        .header h1 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .export-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .export-btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .export-btn:hover {
+            background: #2ea043;
+        }
+
+        .export-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        .export-content.show {
+            display: block;
+        }
+
+        .export-content a {
+            color: #e6edf3;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            display: block;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .export-content a:hover {
+            background: #21262d;
+        }
+
+        .export-content a:last-child {
+            border-bottom: none;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .left-column {
+            width: 300px;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .middle-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0d1117;
+        }
+
+        .right-column {
+            width: 400px;
+            background: #161b22;
+            border-left: 1px solid #30363d;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .column-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .server-selector {
+            margin-bottom: 1rem;
+        }
+
+        .server-selector label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .server-selector select {
+            width: 100%;
+            padding: 0.5rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+        }
+
+        .tool-item {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+
+        .tool-header {
+            padding: 0.75rem;
+            background: #30363d;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tool-content {
+            padding: 0.75rem;
+            display: none;
+        }
+
+        .tool-content.show {
+            display: block;
+        }
+
+        .tool-description {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .chat-message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        .chat-message.user {
+            background: #1f6feb;
+            margin-left: auto;
+        }
+
+        .chat-message.assistant {
+            background: #21262d;
+            border: 1px solid #30363d;
+        }
+
+        .chat-input-container {
+            padding: 1rem;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.75rem;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            font-size: 0.9rem;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #1f6feb;
+        }
+
+        .send-btn {
+            padding: 0.75rem 1rem;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .send-btn:hover {
+            background: #2ea043;
+        }
+
+        .send-btn:disabled {
+            background: #30363d;
+            cursor: not-allowed;
+        }
+
+        .context-tabs {
+            display: flex;
+            border-bottom: 1px solid #30363d;
+            margin-bottom: 1rem;
+        }
+
+        .context-tab {
+            padding: 0.5rem 1rem;
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .context-tab.active {
+            color: #e6edf3;
+            border-bottom-color: #1f6feb;
+        }
+
+        .context-content {
+            display: none;
+        }
+
+        .context-content.active {
+            display: block;
+        }
+
+        .context-item {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+        }
+
+        .context-item h4 {
+            margin-bottom: 0.5rem;
+            color: #1f6feb;
+        }
+
+        .context-item p {
+            font-size: 0.9rem;
+            color: #8b949e;
+            margin-bottom: 0.25rem;
+        }
+
+        .tool-calls {
+            margin-top: 0.5rem;
+        }
+
+        .tool-call {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 1rem;
+            color: #8b949e;
+        }
+
+        .error {
+            background: #da3633;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #238636;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f6feb;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 MCP Chat</h1>
+        <div class="export-dropdown">
+            <button class="export-btn" onclick="toggleExport()">
+                📤 Export
+                <span>▼</span>
+            </button>
+            <div class="export-content" id="exportDropdown">
+                <a href="#" onclick="exportData('json')">📄 Export JSON</a>
+                <a href="#" onclick="exportData('markdown')">📝 Export Markdown</a>
+                <a href="#" onclick="clearChat()">🗑️ Clear Chat</a>
+                <a href="#" onclick="showApiHistory()">📊 API History</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Left Column: MCP Servers -->
+        <div class="left-column">
+            <div class="column-header">🔧 MCP Servers</div>
+            
+            <div class="server-selector">
+                <label for="serverSelect">Select servers:</label>
+                <select id="serverSelect" multiple>
+                    {% for server_name in catalogs.keys() %}
+                    <option value="{{ server_name }}" selected>{{ server_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="serverTools">
+                {% for server_name, catalog in catalogs.items() %}
+                {% if "error" not in catalog %}
+                <div class="server-section">
+                    <h4>{{ server_name }}</h4>
+                    {% for tool in catalog.get("tools", []) %}
+                    <div class="tool-item">
+                        <div class="tool-header" onclick="toggleTool(this)">
+                            🔧 {{ tool.get("name", "Unknown Tool") }}
+                            <span>▼</span>
+                        </div>
+                        <div class="tool-content">
+                            <div class="tool-description">{{ tool.get("description", "No description") }}</div>
+                            {% if "input_schema" in tool %}
+                            <details>
+                                <summary>Input Schema</summary>
+                                <pre>{{ tool["input_schema"] | tojson(indent=2) }}</pre>
+                            </details>
+                            {% endif %}
+                            {% if "output_schema" in tool %}
+                            <details>
+                                <summary>Output Schema</summary>
+                                <pre>{{ tool["output_schema"] | tojson(indent=2) }}</pre>
+                            </details>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="error">{{ server_name }}: {{ catalog["error"] }}</div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Middle Column: Chat -->
+        <div class="middle-column">
+            <div class="chat-container" id="chatContainer">
+                <div class="loading" id="loading">Processing...</div>
+                <div id="chatMessages">
+                    {% for message in chat_history %}
+                    <div class="chat-message {{ message.role }}">
+                        {{ message.text }}
+                        {% if message.citations %}
+                        <div class="tool-calls">
+                            {% for citation in message.citations %}
+                            <div class="tool-call">
+                                <strong>{{ citation.get("tool", "Unknown Tool") }}</strong>
+                                {% if citation.args %}
+                                <div>Args: {{ citation.args | tojson }}</div>
+                                {% endif %}
+                                {% if citation.result_count %}
+                                <div>Results: {{ citation.result_count }} items</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Chat Input (contained within middle column) -->
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <input type="text" id="chatInput" class="chat-input" 
+                           placeholder="Ask something (e.g., 'What prefixes exist at HQ-Dallas?')" 
+                           onkeypress="handleKeyPress(event)">
+                    <button id="sendBtn" class="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Context Window History -->
+        <div class="right-column">
+            <div class="column-header">📋 Context Window History</div>
+            <p style="font-size: 0.9rem; color: #8b949e; margin-bottom: 1rem;">
+                Full context sent to LLM (including your prompt)
+            </p>
+
+            <div id="contextTabs" class="context-tabs">
+                <button class="context-tab active" onclick="showContextTab('current')">Current</button>
+                {% for i in range(context_history|length - 1) %}
+                <button class="context-tab" onclick="showContextTab('previous{{ i + 1 }}')">Previous {{ i + 1 }}</button>
+                {% endfor %}
+            </div>
+
+            <div id="contextContent">
+                <div id="currentContext" class="context-content active">
+                    <div class="context-item">
+                        <h4>🎯 Current Tool Metadata</h4>
+                        {% if catalogs %}
+                        {% for server_name, catalog in catalogs.items() %}
+                        <p><strong>📋 {{ server_name }}</strong></p>
+                        {% if "error" not in catalog %}
+                        {% for tool in catalog.get("tools", []) %}
+                        <p style="margin-left: 1rem;">- <strong>{{ tool.get("name", "Unknown") }}</strong>: {{ tool.get("description", "No description") }}</p>
+                        {% endfor %}
+                        {% else %}
+                        <p style="margin-left: 1rem; color: #da3633;">Error: {{ catalog["error"] }}</p>
+                        {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        <p>No tool metadata available.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% for i in range(context_history|length - 1) %}
+                {% set context_entry = context_history[i] %}
+                <div id="previousContext{{ i + 1 }}" class="context-content">
+                    <div class="context-item">
+                        <h4>👤 User Prompt</h4>
+                        <p>{{ context_entry.user_prompt }}</p>
+                        <h4>⏰ Timestamp</h4>
+                        <p>{{ context_entry.timestamp }}</p>
+                        {% if "full_context" in context_entry %}
+                        <h4>📋 Full Context Sent to LLM</h4>
+                        <p><strong>User Message:</strong></p>
+                        <pre>{{ context_entry.full_context.user_message }}</pre>
+                        <p><strong>Available Tools:</strong></p>
+                        {% for server_name, context in context_entry.full_context.available_tools.items() %}
+                        <p>📋 {{ server_name }}</p>
+                        {% if "error" not in context %}
+                        {% for tool in context.get("tools", []) %}
+                        <p style="margin-left: 1rem;">- {{ tool.get("name", "Unknown") }}: {{ tool.get("description", "No description") }}</p>
+                        {% endfor %}
+                        {% endif %}
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats" id="stats" style="display: none;">
+        <div class="stat-item">
+            <div class="stat-value" id="totalTurns">0</div>
+            <div class="stat-label">Total Turns</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="userMessages">0</div>
+            <div class="stat-label">User Messages</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="assistantResponses">0</div>
+            <div class="stat-label">Assistant Responses</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="toolCalls">0</div>
+            <div class="stat-label">Tool Calls</div>
+        </div>
+    </div>
+
+    <script>
+        let selectedServers = Array.from(document.getElementById('serverSelect').selectedOptions).map(opt => opt.value);
+
+        function toggleExport() {
+            document.getElementById('exportDropdown').classList.toggle('show');
+        }
+
+        function toggleTool(header) {
+            const content = header.nextElementSibling;
+            content.classList.toggle('show');
+        }
+
+        function showContextTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.context-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.context-content').forEach(content => content.classList.remove('active'));
+            
+            // Show selected tab
+            event.target.classList.add('active');
+            document.getElementById(tabName === 'current' ? 'currentContext' : tabName + 'Context').classList.add('active');
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message || selectedServers.length === 0) {
+                alert('Please enter a message and select at least one server.');
+                return;
+            }
+
+            // Update selected servers
+            selectedServers = Array.from(document.getElementById('serverSelect').selectedOptions).map(opt => opt.value);
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('sendBtn').disabled = true;
+
+            // Add user message to chat
+            addMessageToChat('user', message);
+            input.value = '';
+
+            // Send to server
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    selected_servers: selectedServers
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('sendBtn').disabled = false;
+
+                if (data.success) {
+                    addMessageToChat('assistant', data.response, data.citations);
+                    updateContextHistory(data.context_history);
+                    updateStats(data.chat_history);
+                } else {
+                    addMessageToChat('assistant', 'Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('sendBtn').disabled = false;
+                addMessageToChat('assistant', 'Error: ' + error.message);
+            });
+        }
+
+        function addMessageToChat(role, text, citations = []) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role}`;
+            
+            let html = text;
+            if (citations && citations.length > 0) {
+                html += '<div class="tool-calls">';
+                citations.forEach(citation => {
+                    html += '<div class="tool-call">';
+                    html += `<strong>${citation.tool || 'Unknown Tool'}</strong>`;
+                    if (citation.args) {
+                        html += `<div>Args: ${JSON.stringify(citation.args)}</div>`;
+                    }
+                    if (citation.result_count) {
+                        html += `<div>Results: ${citation.result_count} items</div>`;
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            messageDiv.innerHTML = html;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateContextHistory(contextHistory) {
+            // Update context tabs and content
+            const tabsContainer = document.getElementById('contextTabs');
+            const contentContainer = document.getElementById('contextContent');
+            
+            // Clear existing tabs and content
+            tabsContainer.innerHTML = '';
+            contentContainer.innerHTML = '';
+            
+            // Add Current tab
+            const currentTab = document.createElement('button');
+            currentTab.className = 'context-tab active';
+            currentTab.textContent = 'Current';
+            currentTab.onclick = () => showContextTab('current');
+            tabsContainer.appendChild(currentTab);
+            
+            // Add Current content
+            const currentContent = document.createElement('div');
+            currentContent.id = 'currentContext';
+            currentContent.className = 'context-content active';
+            
+            // Get current tool metadata
+            fetch('/api/context')
+                .then(response => response.json())
+                .then(catalogs => {
+                    let currentHtml = `
+                        <div class="context-item">
+                            <h4>🎯 Current Tool Metadata</h4>
+                    `;
+                    
+                    if (Object.keys(catalogs).length > 0) {
+                        Object.entries(catalogs).forEach(([serverName, catalog]) => {
+                            currentHtml += `<p><strong>📋 ${serverName}</strong></p>`;
+                            if (!catalog.error && catalog.tools) {
+                                catalog.tools.forEach(tool => {
+                                    currentHtml += `<p style="margin-left: 1rem;">- <strong>${tool.name || 'Unknown'}</strong>: ${tool.description || 'No description'}</p>`;
+                                });
+                            } else if (catalog.error) {
+                                currentHtml += `<p style="margin-left: 1rem; color: #da3633;">Error: ${catalog.error}</p>`;
+                            }
+                        });
+                    } else {
+                        currentHtml += `<p>No tool metadata available.</p>`;
+                    }
+                    
+                    currentHtml += '</div>';
+                    currentContent.innerHTML = currentHtml;
+                })
+                .catch(error => {
+                    currentContent.innerHTML = `
+                        <div class="context-item">
+                            <h4>🎯 Current Tool Metadata</h4>
+                            <p>Error loading tool metadata: ${error.message}</p>
+                        </div>
+                    `;
+                });
+            
+            contentContainer.appendChild(currentContent);
+            
+            // Add Previous tabs and content
+            contextHistory.forEach((entry, index) => {
+                const tab = document.createElement('button');
+                tab.className = 'context-tab';
+                tab.textContent = `Previous ${index + 1}`;
+                tab.onclick = () => showContextTab(`previous${index + 1}`);
+                tabsContainer.appendChild(tab);
+                
+                const content = document.createElement('div');
+                content.id = `previousContext${index + 1}`;
+                content.className = 'context-content';
+                
+                let contentHtml = `
+                    <div class="context-item">
+                        <h4>👤 User Prompt</h4>
+                        <p>${entry.user_prompt}</p>
+                        <h4>⏰ Timestamp</h4>
+                        <p>${entry.timestamp}</p>
+                `;
+                
+                if (entry.full_context) {
+                    contentHtml += `
+                        <h4>📋 Full Context Sent to LLM</h4>
+                        <p><strong>User Message:</strong></p>
+                        <pre>${entry.full_context.user_message}</pre>
+                        <p><strong>Available Tools:</strong></p>
+                    `;
+                    
+                    if (entry.full_context.available_tools) {
+                        Object.entries(entry.full_context.available_tools).forEach(([serverName, context]) => {
+                            contentHtml += `<p>📋 ${serverName}</p>`;
+                            if (!context.error && context.tools) {
+                                context.tools.forEach(tool => {
+                                    contentHtml += `<p style="margin-left: 1rem;">- <strong>${tool.name || 'Unknown'}</strong>: ${tool.description || 'No description'}</p>`;
+                                });
+                            }
+                        });
+                    }
+                }
+                
+                contentHtml += '</div>';
+                content.innerHTML = contentHtml;
+                contentContainer.appendChild(content);
+            });
+        }
+
+        function updateStats(chatHistory) {
+            if (chatHistory.length > 0) {
+                document.getElementById('stats').style.display = 'flex';
+                
+                const totalTurns = chatHistory.length;
+                const userTurns = chatHistory.filter(m => m.role === 'user').length;
+                const assistantTurns = chatHistory.filter(m => m.role === 'assistant').length;
+                const toolCalls = chatHistory.reduce((sum, m) => sum + (m.citations ? m.citations.length : 0), 0);
+                
+                document.getElementById('totalTurns').textContent = totalTurns;
+                document.getElementById('userMessages').textContent = userTurns;
+                document.getElementById('assistantResponses').textContent = assistantTurns;
+                document.getElementById('toolCalls').textContent = toolCalls;
+            }
+        }
+
+        function exportData(format) {
+            fetch(`/api/export/${format}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ Exported to ${data.filepath}`);
+                    } else {
+                        alert(`❌ Export failed: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    alert(`❌ Export failed: ${error.message}`);
+                });
+            
+            document.getElementById('exportDropdown').classList.remove('show');
+        }
+
+        function clearChat() {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                fetch('/api/clear')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        }
+                    });
+            }
+            document.getElementById('exportDropdown').classList.remove('show');
+        }
+
+        function showApiHistory() {
+            fetch('/api/history')
+                .then(response => response.json())
+                .then(data => {
+                    let historyText = 'API Call History:\n\n';
+                    Object.entries(data).forEach(([server, calls]) => {
+                        historyText += `${server} (${calls.length} calls):\n`;
+                        calls.forEach(call => {
+                            historyText += `  ${call.method} ${call.endpoint} - ${call.timestamp}\n`;
+                        });
+                        historyText += '\n';
+                    });
+                    alert(historyText);
+                });
+            document.getElementById('exportDropdown').classList.remove('show');
+        }
+
+        // Close dropdown when clicking outside
+        window.onclick = function(event) {
+            if (!event.target.matches('.export-btn')) {
+                document.getElementById('exportDropdown').classList.remove('show');
+            }
+        }
+
+        // Initialize stats if there's chat history
+        {% if chat_history %}
+        updateStats({{ chat_history | tojson }});
+        {% endif %}
+    </script>
+</body>
+</html>

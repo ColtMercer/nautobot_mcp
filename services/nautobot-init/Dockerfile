@@ -2,8 +2,6 @@ FROM networktocode/nautobot:stable
 
 WORKDIR /app
 
-# Copy startup script
-COPY startup.sh ./
+COPY create_token.py .
 
-# Run the startup script with bash
-CMD ["bash", "startup.sh"]
+CMD ["python", "create_token.py"]

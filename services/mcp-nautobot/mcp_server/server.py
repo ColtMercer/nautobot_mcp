@@ -1,11 +1,13 @@
 """FastMCP server for Nautobot integration."""
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import structlog
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastmcp.server import FastMCP
+from fastmcp.tools import Tool
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from .tools.prefixes import get_prefixes_by_location
 from .tools.llm_chat import llm_chat
@@ -31,167 +33,134 @@ structlog.configure(
 
 logger = structlog.get_logger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="Nautobot MCP Server",
-    description="FastMCP server exposing Nautobot utilities as MCP tools",
+# Create FastMCP server
+server = FastMCP(
+    name="nautobot-mcp-server",
+    instructions="FastMCP server exposing Nautobot utilities as MCP tools",
     version="0.1.0"
 )
 
-# Metrics (disabled for now due to conflicts)
-# tool_calls_total = Counter('nautobot_mcp_tool_calls_total', 'Total number of MCP tool calls', ['tool_name', 'status'])
-# tool_call_duration = Histogram('nautobot_mcp_tool_call_duration_seconds', 'Duration of MCP tool calls', ['tool_name'])
-
-# API key for tool invocations
-MCP_API_KEY = os.environ.get("MCP_API_KEY", "dev-mcp-key")
-
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all requests with correlation ID."""
-    correlation_id = request.headers.get("X-Correlation-ID", "unknown")
-    logger.info("Request started", 
-                method=request.method, 
-                url=str(request.url), 
-                correlation_id=correlation_id)
+# Create tools from existing functions
+def get_prefixes_tool(location_name: str) -> List[Dict[str, Any]]:
+    """Get all prefixes under a Nautobot Location by human-friendly name.
     
-    response = await call_next(request)
+    Args:
+        location_name: The name of the location (e.g., "HQ-Dallas", "LAB-Austin")
+        
+    Returns:
+        List of prefix objects with prefix, status, role, description, and site information
+    """
+    return get_prefixes_by_location(location_name)
+
+def llm_chat_tool(message: str) -> Dict[str, Any]:
+    """LLM assistant that can call other MCP tools and returns citations.
     
-    logger.info("Request completed", 
-                method=request.method, 
-                url=str(request.url), 
-                status_code=response.status_code,
-                correlation_id=correlation_id)
-    
-    return response
+    Args:
+        message: The user's message
+        
+    Returns:
+        Dictionary with answer and citations
+    """
+    return llm_chat(message)
 
+# Create Tool instances
+prefixes_tool = Tool.from_function(
+    fn=get_prefixes_tool,
+    name="get_prefixes_by_location",
+    description="""Get all prefixes under a Nautobot Location by human-friendly name.
 
-def require_api_key(request: Request):
-    """Check for valid API key in request headers."""
-    api_key = request.headers.get("X-API-Key")
-    if api_key != MCP_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+CRITICAL: When extracting the location name from user queries, NEVER use the word "prefixes" as a location name.
 
+This tool understands various ways users might refer to locations:
+- "site" = "location" (e.g., "site Branch Office 3")
+- "office" = "location" (e.g., "office HQ-Dallas") 
+- "branch" = "location" (e.g., "branch LAB-Austin")
 
-@app.get("/healthz")
-async def health_check():
+Common location names include:
+- HQ-Dallas, LAB-Austin
+- Branch Office 1, Branch Office 2, Branch Office 3
+
+EXTRACTION RULES:
+1. When a user asks about prefixes at a location, extract ONLY the location name from their query
+2. For multi-word locations like "Branch Office 3", use the full name as-is
+3. NEVER extract words like "prefix", "prefixes", "what", "show", "find" as location names
+4. Look for location names AFTER words like "at", "in", "for", "of"
+
+Examples:
+- User: "What prefixes are at site Branch Office 3?" → location_name: "Branch Office 3"
+- User: "Show me prefixes at office HQ-Dallas" → location_name: "HQ-Dallas"
+- User: "Find prefixes for branch LAB-Austin" → location_name: "LAB-Austin"
+- User: "What prefixes are at location Branch Office 3?" → location_name: "Branch Office 3"
+
+WRONG EXAMPLES (DO NOT DO):
+- User: "What prefixes are at location Branch Office 3?" → location_name: "prefixes" ❌
+- User: "Show me prefixes at Branch Office 3" → location_name: "prefixes" ❌"""
+)
+
+llm_chat_tool_instance = Tool.from_function(
+    fn=llm_chat_tool,
+    name="llm_chat",
+    description="LLM assistant that can call other MCP tools and returns citations."
+)
+
+# Add tools to the server
+server.add_tool(prefixes_tool)
+server.add_tool(llm_chat_tool_instance)
+
+# Add custom REST endpoints for chat UI compatibility
+@server.custom_route("/tools", methods=["GET"])
+async def get_tools(request: Request) -> JSONResponse:
+    """Get list of available tools in REST format."""
+    tools = []
+    tools_dict = await server.get_tools()
+    for tool in tools_dict.values():
+        tools.append({
+            "name": tool.name,
+            "description": tool.description,
+            "input_schema": tool.parameters,
+            "output_schema": tool.output_schema
+        })
+    return JSONResponse({"tools": tools})
+
+@server.custom_route("/tools/invoke", methods=["POST"])
+async def invoke_tool(request: Request) -> JSONResponse:
+    """Invoke a tool by name with arguments."""
+    try:
+        # Parse request body
+        body = await request.json()
+        tool_name = body.get("tool_name")
+        args = body.get("args", {})
+        
+        if not tool_name:
+            return JSONResponse({"error": "tool_name is required"}, status_code=400)
+        
+        # Get the tool
+        tool = await server.get_tool(tool_name)
+        if not tool:
+            return JSONResponse({"error": f"Tool '{tool_name}' not found"}, status_code=404)
+        
+        # Call the tool function
+        result = tool.fn(**args)
+        
+        return JSONResponse({"result": result})
+    except Exception as e:
+        logger.error("Error invoking tool", error=str(e))
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@server.custom_route("/healthz", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "version": "0.1.0",
-        "build_sha": os.environ.get("BUILD_SHA", "dev")
-    }
-
-
-@app.get("/tools")
-async def list_tools():
-    """List available MCP tools."""
-    tools = [
-        {
-            "name": "get_prefixes_by_location",
-            "description": "Return all prefixes under a Nautobot Location by human-friendly name.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "location_name": {"type": "string"}
-                },
-                "required": ["location_name"]
-            },
-            "output_schema": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "prefix": {"type": "string"},
-                        "status": {"type": "string"},
-                        "role": {"type": "string"},
-                        "description": {"type": "string"},
-                        "site": {"type": "string"}
-                    }
-                }
-            }
-        },
-        {
-            "name": "llm_chat",
-            "description": "LLM assistant that can call other MCP tools and returns citations.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string"}
-                },
-                "required": ["message"]
-            },
-            "output_schema": {
-                "type": "object",
-                "properties": {
-                    "answer": {"type": "string"},
-                    "citations": {
-                        "type": "array",
-                        "items": {"type": "object"}
-                    }
-                }
-            }
-        }
-    ]
-    
-    return {"tools": tools}
-
-
-@app.post("/tools/get_prefixes_by_location:invoke")
-async def invoke_get_prefixes_by_location(request: Request):
-    """Invoke the get_prefixes_by_location tool."""
-    require_api_key(request)
-    
-    try:
-        body = await request.json()
-        location_name = body.get("location_name")
-        
-        if not location_name:
-            raise HTTPException(status_code=400, detail="location_name is required")
-        
-        result = get_prefixes_by_location(location_name)
-        return {"result": result}
-        
-    except Exception as e:
-        logger.error("Tool invocation failed", tool="get_prefixes_by_location", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/tools/llm_chat:invoke")
-async def invoke_llm_chat(request: Request):
-    """Invoke the llm_chat tool."""
-    require_api_key(request)
-    
-    try:
-        body = await request.json()
-        message = body.get("message")
-        
-        if not message:
-            raise HTTPException(status_code=400, detail="message is required")
-        
-        result = llm_chat(message)
-        return {"result": result}
-        
-    except Exception as e:
-        logger.error("Tool invocation failed", tool="llm_chat", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/metrics")
-async def metrics():
-    """Prometheus metrics endpoint."""
-    return {"message": "Metrics disabled for now"}
-
+    return JSONResponse({"status": "ok", "service": "nautobot-mcp-server"})
 
 if __name__ == "__main__":
-    import uvicorn
-    
+    # Get configuration from environment
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "7000"))
     log_level = os.environ.get("LOG_LEVEL", "info")
     
-    uvicorn.run(
-        "mcp_server.server:app",
-        host="0.0.0.0",
-        port=7000,
-        log_level=log_level,
-        access_log=True
+    # Run the FastMCP server
+    server.run(
+        transport="streamable-http",
+        host=host,
+        port=port
     )
