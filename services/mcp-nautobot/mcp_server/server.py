@@ -9,8 +9,13 @@ from fastmcp.tools import Tool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from .tools.prefixes import get_prefixes_by_location
-from .tools.llm_chat import llm_chat
+from .tools.prefixes import (
+    get_prefixes_by_location,
+)
+from .tools.devices import (
+    get_devices_by_location,
+    get_devices_by_location_and_role,
+)
 
 # Configure structured logging
 structlog.configure(
@@ -36,76 +41,92 @@ logger = structlog.get_logger(__name__)
 # Create FastMCP server
 server = FastMCP(
     name="nautobot-mcp-server",
-    instructions="FastMCP server exposing Nautobot utilities as MCP tools",
+    instructions="FastMCP server exposing Nautobot GraphQL API as MCP tools",
     version="0.1.0"
 )
 
 # Create tools from existing functions
-def get_prefixes_tool(location_name: str) -> List[Dict[str, Any]]:
-    """Get all prefixes under a Nautobot Location by human-friendly name.
+def get_prefixes_tool(location_name: str, format: str = "json") -> Dict[str, Any]:
+    """Get prefixes by location name with multiple output formats.
     
     Args:
         location_name: The name of the location (e.g., "HQ-Dallas", "LAB-Austin")
+        format: Output format - "json", "table", "dataframe", or "csv"
         
     Returns:
-        List of prefix objects with prefix, status, role, description, and site information
+        Dictionary containing prefixes data in the requested format
     """
-    return get_prefixes_by_location(location_name)
+    return get_prefixes_by_location(location_name, format)
 
-def llm_chat_tool(message: str) -> Dict[str, Any]:
-    """LLM assistant that can call other MCP tools and returns citations.
+def get_devices_by_location_tool(location_name: str) -> Dict[str, Any]:
+    """Get devices by location name.
     
     Args:
-        message: The user's message
+        location_name: The name of the location (e.g., "NY Data Center", "Campus A")
         
     Returns:
-        Dictionary with answer and citations
+        Dictionary containing device data in JSON format
     """
-    return llm_chat(message)
+    return get_devices_by_location(location_name)
+
+def get_devices_by_location_and_role_tool(location_name: str, role_name: str) -> Dict[str, Any]:
+    """Get devices by location and role.
+    
+    Args:
+        location_name: The name of the location (e.g., "NY Data Center", "Campus A")
+        role_name: The name of the device role (e.g., "WAN Router", "Access Switch")
+        
+    Returns:
+        Dictionary containing device data in JSON format
+    """
+    return get_devices_by_location_and_role(location_name, role_name)
 
 # Create Tool instances
 prefixes_tool = Tool.from_function(
     fn=get_prefixes_tool,
-    name="get_prefixes_by_location",
-    description="""Get all prefixes under a Nautobot Location by human-friendly name.
+    name="get_prefixes_by_location_enhanced",
+    description="""Get prefixes by location. Returns raw JSON only (LLM handles formatting/analysis).
 
-CRITICAL: When extracting the location name from user queries, NEVER use the word "prefixes" as a location name.
+        Args:
+            location_name: Name of the location (e.g., "Branch Office 3", "HQ-Dallas")
+            format: Ignored. Always returns JSON.
 
-This tool understands various ways users might refer to locations:
-- "site" = "location" (e.g., "site Branch Office 3")
-- "office" = "location" (e.g., "office HQ-Dallas") 
-- "branch" = "location" (e.g., "branch LAB-Austin")
-
-Common location names include:
-- HQ-Dallas, LAB-Austin
-- Branch Office 1, Branch Office 2, Branch Office 3
-
-EXTRACTION RULES:
-1. When a user asks about prefixes at a location, extract ONLY the location name from their query
-2. For multi-word locations like "Branch Office 3", use the full name as-is
-3. NEVER extract words like "prefix", "prefixes", "what", "show", "find" as location names
-4. Look for location names AFTER words like "at", "in", "for", "of"
-
-Examples:
-- User: "What prefixes are at site Branch Office 3?" → location_name: "Branch Office 3"
-- User: "Show me prefixes at office HQ-Dallas" → location_name: "HQ-Dallas"
-- User: "Find prefixes for branch LAB-Austin" → location_name: "LAB-Austin"
-- User: "What prefixes are at location Branch Office 3?" → location_name: "Branch Office 3"
-
-WRONG EXAMPLES (DO NOT DO):
-- User: "What prefixes are at location Branch Office 3?" → location_name: "prefixes" ❌
-- User: "Show me prefixes at Branch Office 3" → location_name: "prefixes" ❌"""
+        Returns:
+            JSON object with fields: success, message, count, data (list of prefixes)
+        """
 )
 
-llm_chat_tool_instance = Tool.from_function(
-    fn=llm_chat_tool,
-    name="llm_chat",
-    description="LLM assistant that can call other MCP tools and returns citations."
+devices_by_location_tool = Tool.from_function(
+    fn=get_devices_by_location_tool,
+    name="get_devices_by_location",
+    description="""Get devices by location. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            location_name: Name of the location (e.g., "NY Data Center", "Campus A", "Branch Office 3")
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of devices with name, status, role, device_type, platform, primary_ip4, location, description)
+        """
+)
+
+devices_by_location_and_role_tool = Tool.from_function(
+    fn=get_devices_by_location_and_role_tool,
+    name="get_devices_by_location_and_role",
+    description="""Get devices by location and role. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            location_name: Name of the location (e.g., "NY Data Center", "Campus A", "Branch Office 3")
+            role_name: Name of the device role (e.g., "WAN Router", "Access Switch", "Core Switch", "Firewall")
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of devices with name, status, role, device_type, platform, primary_ip4, location, description)
+        """
 )
 
 # Add tools to the server
 server.add_tool(prefixes_tool)
-server.add_tool(llm_chat_tool_instance)
+server.add_tool(devices_by_location_tool)
+server.add_tool(devices_by_location_and_role_tool)
 
 # Add custom REST endpoints for chat UI compatibility
 @server.custom_route("/tools", methods=["GET"])
@@ -155,7 +176,7 @@ async def health_check(request: Request) -> JSONResponse:
 if __name__ == "__main__":
     # Get configuration from environment
     host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "7000"))
+    port = int(os.environ.get("PORT", "7001"))
     log_level = os.environ.get("LOG_LEVEL", "info")
     
     # Run the FastMCP server

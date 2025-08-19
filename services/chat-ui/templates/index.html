@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP Chat</title>
+    <!-- Markdown library for rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Configure marked.js for better table rendering
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            tables: true
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -37,12 +47,18 @@
             font-weight: 600;
         }
 
-        .export-dropdown {
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .chat-dropdown, .export-dropdown {
             position: relative;
             display: inline-block;
         }
 
-        .export-btn {
+        .chat-btn, .export-btn {
             background: #238636;
             color: white;
             border: none;
@@ -55,11 +71,11 @@
             font-size: 0.9rem;
         }
 
-        .export-btn:hover {
+        .chat-btn:hover, .export-btn:hover {
             background: #2ea043;
         }
 
-        .export-content {
+        .chat-content, .export-content {
             display: none;
             position: absolute;
             right: 0;
@@ -71,11 +87,11 @@
             min-width: 200px;
         }
 
-        .export-content.show {
+        .chat-content.show, .export-content.show {
             display: block;
         }
 
-        .export-content a {
+        .chat-content a, .export-content a {
             color: #e6edf3;
             padding: 0.75rem 1rem;
             text-decoration: none;
@@ -83,11 +99,143 @@
             border-bottom: 1px solid #30363d;
         }
 
-        .export-content a:hover {
+        .chat-content a:hover, .export-content a:hover {
             background: #21262d;
         }
 
-        .export-content a:last-child {
+        .chat-content a:last-child,         .export-content a:last-child {
+            border-bottom: none;
+        }
+
+        /* Chat History Panel */
+        .chat-history-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 350px;
+            max-height: 400px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+        }
+
+        .chat-history-panel.show {
+            display: flex;
+        }
+
+        .chat-history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #30363d;
+            background: #21262d;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .chat-history-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #e6edf3;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .close-btn:hover {
+            background: #30363d;
+        }
+
+        .chat-history-content {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+            padding: 0;
+        }
+
+        .chat-history-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #30363d;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .chat-history-item:hover {
+            background: #21262d;
+        }
+
+        .chat-history-item:last-child {
+            border-bottom: none;
+        }
+
+        .chat-history-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #e6edf3;
+        }
+
+        .chat-history-meta {
+            font-size: 0.8rem;
+            color: #8b949e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-history-preview {
+            font-size: 0.85rem;
+            color: #c9d1d9;
+            margin-top: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .chat-history-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .chat-history-btn {
+            background: #30363d;
+            border: none;
+            color: #e6edf3;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .chat-history-btn:hover {
+            background: #484f58;
+        }
+
+        .chat-history-btn.delete {
+            background: #da3633;
+        }
+
+        .chat-history-btn.delete:hover {
+            background: #f85149;
+        }
+
+
             border-bottom: none;
         }
 
@@ -199,6 +347,77 @@
         .chat-message.assistant {
             background: #21262d;
             border: 1px solid #30363d;
+        }
+
+        /* Markdown styling */
+        .chat-message.assistant table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+            background: #0d1117;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .chat-message.assistant th {
+            background: #21262d;
+            color: #e6edf3;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .chat-message.assistant td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #30363d;
+            color: #e6edf3;
+        }
+
+        .chat-message.assistant tr:hover {
+            background: #161b22;
+        }
+
+        .chat-message.assistant tr:last-child td {
+            border-bottom: none;
+        }
+
+        .chat-message.assistant code {
+            background: #21262d;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .chat-message.assistant pre {
+            background: #0d1117;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #30363d;
+            margin: 1rem 0;
+        }
+
+        .chat-message.assistant pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .chat-message.assistant blockquote {
+            border-left: 4px solid #58a6ff;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #8b949e;
+        }
+
+        .chat-message.assistant ul, .chat-message.assistant ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        .chat-message.assistant li {
+            margin: 0.5rem 0;
         }
 
         .chat-input-container {
@@ -354,21 +573,95 @@
             font-size: 0.8rem;
             color: #8b949e;
         }
+        
+        .table-container {
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        .table-container table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #0d1117;
+            border: 1px solid #30363d;
+        }
+        
+        .table-container th,
+        .table-container td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .table-container th {
+            background: #21262d;
+            font-weight: bold;
+            color: #f0f6fc;
+        }
+        
+        .table-container tr:hover {
+            background: #161b22;
+        }
+        
+        .analysis-container {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+        }
+        
+        .analysis-container h4 {
+            margin: 0 0 10px 0;
+            color: #58a6ff;
+        }
+        
+        .csv-download {
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .csv-download .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #238636;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .csv-download .btn:hover {
+            background: #2ea043;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🤖 MCP Chat</h1>
-        <div class="export-dropdown">
-            <button class="export-btn" onclick="toggleExport()">
-                📤 Export
-                <span>▼</span>
-            </button>
-            <div class="export-content" id="exportDropdown">
-                <a href="#" onclick="exportData('json')">📄 Export JSON</a>
-                <a href="#" onclick="exportData('markdown')">📝 Export Markdown</a>
-                <a href="#" onclick="clearChat()">🗑️ Clear Chat</a>
-                <a href="#" onclick="showApiHistory()">📊 API History</a>
+        <div class="header-controls">
+            <div class="chat-dropdown">
+                <button class="chat-btn" onclick="toggleChat()">
+                    💬 Chat
+                    <span>▼</span>
+                </button>
+                <div class="chat-content" id="chatDropdown">
+                    <a href="#" onclick="newChat()">🆕 New Chat</a>
+                    <a href="#" onclick="clearChat()">🗑️ Clear Chat</a>
+                    <a href="#" onclick="loadChatHistory()">📚 Chat History</a>
+                </div>
+            </div>
+            <div class="export-dropdown">
+                <button class="export-btn" onclick="toggleExport()">
+                    📤 Export
+                    <span>▼</span>
+                </button>
+                <div class="export-content" id="exportDropdown">
+                    <a href="#" onclick="exportData('json')">📄 Export JSON</a>
+                    <a href="#" onclick="exportData('markdown')">📝 Export Markdown</a>
+                    <a href="#" onclick="showApiHistory()">📊 API History</a>
+                </div>
             </div>
         </div>
     </div>
@@ -430,7 +723,14 @@
                 <div id="chatMessages">
                     {% for message in chat_history %}
                     <div class="chat-message {{ message.role }}">
+                        {% if message.role == 'assistant' %}
+                        <div id="markdown-{{ loop.index }}"></div>
+                        <script>
+                            document.getElementById('markdown-{{ loop.index }}').innerHTML = marked.parse(`{{ message.text | replace("`", "\\`") | replace("\n", "\\n") | safe }}`);
+                        </script>
+                        {% else %}
                         {{ message.text }}
+                        {% endif %}
                         {% if message.citations %}
                         <div class="tool-calls">
                             {% for citation in message.citations %}
@@ -509,6 +809,18 @@
                         <h4>📋 Full Context Sent to LLM</h4>
                         <p><strong>User Message:</strong></p>
                         <pre>{{ context_entry.full_context.user_message }}</pre>
+                        
+                        <h4>💬 Conversation History (Last 10 messages):</h4>
+                        {% if context_entry.full_context.conversation_summary %}
+                        {% for msg in context_entry.full_context.conversation_summary %}
+                        <div style="margin: 0.5rem 0; padding: 0.5rem; background: #0d1117; border-radius: 4px;">
+                            <strong>{{ msg.role|title }}:</strong> {{ msg.text }}
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p style="color: #8b949e;">No conversation history available.</p>
+                        {% endif %}
+                        
                         <p><strong>Available Tools:</strong></p>
                         {% for server_name, context in context_entry.full_context.available_tools.items() %}
                         <p>📋 {{ server_name }}</p>
@@ -546,11 +858,35 @@
         </div>
     </div>
 
+    <!-- Chat History Panel (Bottom Left) -->
+    <div class="chat-history-panel" id="chatHistoryPanel">
+        <div class="chat-history-header">
+            <h3>📚 Chat History</h3>
+            <button class="close-btn" onclick="toggleChatHistory()">×</button>
+        </div>
+        <div class="chat-history-content" id="chatHistoryContent">
+            <div class="loading">Loading chat history...</div>
+        </div>
+    </div>
+
     <script>
         let selectedServers = Array.from(document.getElementById('serverSelect').selectedOptions).map(opt => opt.value);
 
         function toggleExport() {
             document.getElementById('exportDropdown').classList.toggle('show');
+        }
+
+        function toggleChat() {
+            document.getElementById('chatDropdown').classList.toggle('show');
+        }
+
+        function toggleChatHistory() {
+            const panel = document.getElementById('chatHistoryPanel');
+            panel.classList.toggle('show');
+            
+            if (panel.classList.contains('show')) {
+                loadChatHistory();
+            }
         }
 
         function toggleTool(header) {
@@ -611,7 +947,7 @@
                 document.getElementById('sendBtn').disabled = false;
 
                 if (data.success) {
-                    addMessageToChat('assistant', data.response, data.citations);
+                    addMessageToChat('assistant', data.response, data.citations, data.data);
                     updateContextHistory(data.context_history);
                     updateStats(data.chat_history);
                 } else {
@@ -625,12 +961,38 @@
             });
         }
 
-        function addMessageToChat(role, text, citations = []) {
+        function addMessageToChat(role, text, citations = [], data = null) {
             const container = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${role}`;
             
             let html = text;
+            
+            // Parse markdown for assistant messages
+            if (role === 'assistant') {
+                html = marked.parse(text);
+            }
+            
+            // Handle different data formats
+            if (data && data.format) {
+                if (data.format === 'table' && data.data) {
+                    html += '<div class="table-container">';
+                    html += data.data;
+                    html += '</div>';
+                } else if (data.format === 'dataframe' && data.analysis) {
+                    html += '<div class="analysis-container">';
+                    html += '<h4>📊 Analysis Summary</h4>';
+                    html += `<p><strong>Total Hosts:</strong> ${data.analysis.total_hosts.toLocaleString()}</p>`;
+                    html += `<p><strong>Average Subnet:</strong> /${data.analysis.average_subnet.toFixed(1)}</p>`;
+                    html += `<p><strong>Largest Subnet:</strong> /${data.analysis.largest_subnet}</p>`;
+                    html += '</div>';
+                } else if (data.format === 'csv' && data.download_url) {
+                    html += '<div class="csv-download">';
+                    html += `<a href="${data.download_url}" class="btn btn-primary" download="${data.filename}">📥 Download CSV</a>`;
+                    html += '</div>';
+                }
+            }
+            
             if (citations && citations.length > 0) {
                 html += '<div class="tool-calls">';
                 citations.forEach(citation => {
@@ -800,7 +1162,93 @@
                         }
                     });
             }
-            document.getElementById('exportDropdown').classList.remove('show');
+            document.getElementById('chatDropdown').classList.remove('show');
+        }
+
+        function newChat() {
+            if (confirm('Start a new chat? The current conversation will be archived.')) {
+                fetch('/api/new-chat')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        }
+                    });
+            }
+            document.getElementById('chatDropdown').classList.remove('show');
+        }
+
+        function loadChatHistory() {
+            fetch('/api/chat-history')
+                .then(response => response.json())
+                .then(data => {
+                    const content = document.getElementById('chatHistoryContent');
+                    
+                    if (data.archives && data.archives.length > 0) {
+                        let html = '';
+                        data.archives.forEach(archive => {
+                            const date = new Date(archive.archived_at).toLocaleString();
+                            html += `
+                                <div class="chat-history-item" onclick="loadArchivedChat('${archive._id}')">
+                                    <div class="chat-history-title">${archive.title}</div>
+                                    <div class="chat-history-meta">
+                                        <span>${archive.message_count} messages</span>
+                                        <span>${date}</span>
+                                    </div>
+                                    <div class="chat-history-preview">${archive.first_message}</div>
+                                    <div class="chat-history-actions">
+                                        <button class="chat-history-btn" onclick="event.stopPropagation(); loadArchivedChat('${archive._id}')">Load</button>
+                                        <button class="chat-history-btn delete" onclick="event.stopPropagation(); deleteArchivedChat('${archive._id}')">Delete</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        content.innerHTML = html;
+                    } else {
+                        content.innerHTML = '<div style="padding: 1rem; text-align: center; color: #8b949e;">No archived conversations found</div>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('chatHistoryContent').innerHTML = 
+                        '<div style="padding: 1rem; text-align: center; color: #da3633;">Error loading chat history</div>';
+                });
+        }
+
+        function loadArchivedChat(archiveId) {
+            fetch(`/api/chat-history/${archiveId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.archive) {
+                        // Replace current conversation with archived one
+                        fetch('/api/clear')  // Clear current first
+                            .then(() => {
+                                // Here you would need to implement loading the archived conversation
+                                // For now, just show an alert
+                                alert('Archived conversation loaded! (Feature to be implemented)');
+                                document.getElementById('chatHistoryPanel').classList.remove('show');
+                            });
+                    }
+                })
+                .catch(error => {
+                    alert('Error loading archived conversation');
+                });
+        }
+
+        function deleteArchivedChat(archiveId) {
+            if (confirm('Are you sure you want to delete this archived conversation?')) {
+                fetch(`/api/chat-history/${archiveId}`, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadChatHistory();  // Reload the list
+                        } else {
+                            alert('Error deleting conversation');
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error deleting conversation');
+                    });
+            }
         }
 
         function showApiHistory() {
@@ -824,6 +1272,9 @@
         window.onclick = function(event) {
             if (!event.target.matches('.export-btn')) {
                 document.getElementById('exportDropdown').classList.remove('show');
+            }
+            if (!event.target.matches('.chat-btn')) {
+                document.getElementById('chatDropdown').classList.remove('show');
             }
         }
 
