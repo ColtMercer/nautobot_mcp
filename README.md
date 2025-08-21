@@ -2,6 +2,8 @@
 
 A self-contained, dockerized demo that exposes a **FastMCP** server for the Nautobot OSS platform, plus a lightweight **chat UI** that can list available MCP tools, call them, and export chat transcripts.
 
+![Chat Interface Screenshot](docs/static/chat_screen_shot.png)
+
 ## 🚀 Quick Start
 
 ```bash
