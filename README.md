@@ -4,6 +4,25 @@ A self-contained, dockerized demo that exposes a **FastMCP** server for the Naut
 
 ![Chat Interface Screenshot](docs/static/chat_screen_shot.png)
 
+## 📋 Table of Contents
+
+- [🚀 Quick Start](#-quick-start)
+- [🎯 What's Included](#-whats-included)
+- [🔧 Setup Steps](#-setup-steps)
+  - [Step 1: Start Services](#step-1-start-services)
+  - [Step 2: Configure Environment](#step-2-configure-environment)
+  - [Step 3: Get OpenAI API Key](#step-3-get-openai-api-key)
+  - [Step 4: Create Admin User](#step-4-create-admin-user)
+  - [Step 5: Get Nautobot API Token](#step-5-get-nautobot-api-token)
+  - [Step 6: Access Chat UI](#step-6-access-chat-ui)
+- [🛠️ MCP Tools Available](#️-mcp-tools-available)
+- [📊 Demo Data Structure](#-demo-data-structure)
+- [💬 Example Queries](#-example-queries)
+- [📤 Export Chat Transcripts](#-export-chat-transcripts)
+- [🏗️ Architecture](#️-architecture)
+- [🤝 Contributing New Tools](#-contributing-new-tools)
+- [🔍 Troubleshooting](#-troubleshooting)
+
 ## 🚀 Quick Start
 
 ```bash
