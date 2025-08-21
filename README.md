@@ -200,9 +200,48 @@ The LLM uses this description to decide when and how to call your tool. Be speci
 
 ## 🔍 Troubleshooting
 
+### **General Issues**
 - **Services not starting**: Check `docker-compose logs` for errors
 - **Chat UI not loading**: Ensure all services are healthy with `docker-compose ps`
 - **API errors**: Verify your `NAUTOBOT_TOKEN` is set correctly in `.env`
+
+### **Seed Data Issues**
+
+If you're not seeing data in your queries, the seed container may have failed:
+
+1. **Check seed container logs:**
+   ```bash
+   docker-compose logs seed-data
+   ```
+
+2. **Look for common seed errors:**
+   - Connection timeouts to Nautobot
+   - Authentication failures
+   - Database constraint violations
+   - Missing dependencies
+
+3. **Rerun seed container if needed:**
+   ```bash
+   # Stop and remove the seed container
+   docker-compose rm -f seed-data
+   
+   # Restart it to rerun the seeding process
+   docker-compose up -d seed-data
+   
+   # Check logs again
+   docker-compose logs -f seed-data
+   ```
+
+4. **Verify data was created:**
+   - Go to http://localhost:8080 and log into Nautobot
+   - Check that locations, devices, and prefixes exist
+   - If no data exists, the seed process failed
+
+5. **Common seed container issues:**
+   - **Nautobot not ready**: Seed container starts before Nautobot is fully initialized
+   - **Network connectivity**: Container can't reach Nautobot API
+   - **Permission issues**: API token doesn't have sufficient permissions
+   - **Database locks**: Concurrent operations causing conflicts
 
 ## 📝 License
 
