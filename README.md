@@ -83,10 +83,8 @@ The system includes a comprehensive network topology:
 ## 💬 Example Queries
 
 Try these in the chat UI:
-- "What prefixes exist at HQ-Dallas?"
-- "Show me all devices at HQ-Dallas"
-- "What routers are at HQ-Dallas?"
-- "Export the prefixes at HQ-Dallas as a table"
+- "What prefixes exist at NYDC?"
+- "Show me all devices at BRCN"
 
 ## 📤 Export Chat Transcripts
 
