@@ -13,16 +13,21 @@ docker-compose up -d
 # 2. Copy environment file and configure
 cp .env.example .env
 
-# 3. Create admin user
+# 3. Get OpenAI API key (required for chat functionality):
+#    - Go to https://platform.openai.com/api-keys
+#    - Create a new API key
+#    - Add it to your .env file: OPENAI_API_KEY=your_openai_api_key_here
+
+# 4. Create admin user
 docker exec -it nautobot_mcp-nautobot-1 nautobot-server createsuperuser --username admin --email admin@example.com
 
-# 4. Get your API token:
+# 5. Get your Nautobot API token:
 #    - Go to http://localhost:8080 and log in with your username and password
 #    - Navigate to your User Profile → API Tokens → Add token
 #    - Copy the token key and update your .env file: NAUTOBOT_TOKEN=your_api_token_here
 #    - Restart the services: docker-compose restart
 
-# 5. Open the chat UI
+# 6. Open the chat UI
 #    http://localhost:8501
 ```
 
@@ -43,15 +48,23 @@ docker-compose up -d
 ### Step 2: Configure Environment
 ```bash
 cp .env.example .env
-# Edit .env file with your OpenAI API key (optional)
 ```
 
-### Step 3: Create Admin User
+### Step 3: Get OpenAI API Key
+1. Go to https://platform.openai.com/api-keys
+2. Create a new API key
+3. Add it to your `.env` file:
+   ```bash
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+   **Note**: This is required for chat functionality to work properly.
+
+### Step 4: Create Admin User
 ```bash
 docker exec -it nautobot_mcp-nautobot-1 nautobot-server createsuperuser --username admin --email admin@example.com
 ```
 
-### Step 4: Get API Token
+### Step 5: Get Nautobot API Token
 1. Go to http://localhost:8080 and log in
 2. Navigate to **User Profile** → **API Tokens** → **Add token**
 3. Copy the token and update your `.env` file:
@@ -63,7 +76,7 @@ docker exec -it nautobot_mcp-nautobot-1 nautobot-server createsuperuser --userna
    docker-compose restart
    ```
 
-### Step 5: Access Chat UI
+### Step 6: Access Chat UI
 Open http://localhost:8501 in your browser
 
 ## 🛠️ MCP Tools Available
