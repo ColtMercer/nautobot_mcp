@@ -1,72 +1,77 @@
-# Nautobot FastMCP Server + Streamlit Chat
+# Nautobot MCP Chat Interface
 
-A self-contained, dockerized reference project that exposes a **FastMCP** server for the Nautobot OSS platform, plus a lightweight **LLM chat UI** that can list available MCP tools, call them, and export chat transcripts.
+A self-contained, dockerized demo that exposes a **FastMCP** server for the Nautobot OSS platform, plus a lightweight **chat UI** that can list available MCP tools, call them, and export chat transcripts.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd nautobot_mcp
+# 1. Start all services
+docker-compose up -d
 
-# Copy environment file and configure
+# 2. Copy environment file and configure
 cp .env.example .env
 
-# Start all services
-make up
+# 3. Create admin user
+docker exec -it nautobot_mcp-nautobot-1 nautobot-server createsuperuser --username admin --email admin@example.com
 
-# Get your Nautobot API token:
-# 1. Create admin user: docker compose exec nautobot nautobot-server createsuperuser --username <user_name> --email admin@example.com
-# 2. Go to http://localhost:8080 and log in with your username and password
-# 3. Navigate to your User Profile → API Tokens → Add token
-# 4. Copy the token key and update your .env file: NAUTOBOT_TOKEN=your_api_token_here
-# 5. Restart the services: make restart
+# 4. Get your API token:
+#    - Go to http://localhost:8080 and log in with your username and password
+#    - Navigate to your User Profile → API Tokens → Add token
+#    - Copy the token key and update your .env file: NAUTOBOT_TOKEN=your_api_token_here
+#    - Restart the services: docker-compose restart
 
-# Open the chat UI
-# http://localhost:8501
+# 5. Open the chat UI
+#    http://localhost:8501
 ```
 
-## What's Included
+## 🎯 What's Included
 
 - **Nautobot** with seeded demo data and GraphQL enabled
 - **FastMCP Server** exposing Nautobot utilities as MCP tools
-- **Streamlit Chat UI** for testing MCP tools and exporting conversations
+- **Chat UI** for testing MCP tools and exporting conversations
 - **Demo Data** including locations, devices, interfaces, and IPAM
 
-## Default Credentials
+## 🔧 Setup Steps
 
-- **Nautobot Admin**: You'll create your own username and password during setup
-- **API Token**: You'll need to create this manually (see Manual Setup)
+### Step 1: Start Services
+```bash
+docker-compose up -d
+```
 
-## Manual Setup (Required)
+### Step 2: Configure Environment
+```bash
+cp .env.example .env
+# Edit .env file with your OpenAI API key (optional)
+```
 
-After starting the services, you need to manually create the admin user and API token:
+### Step 3: Create Admin User
+```bash
+docker exec -it nautobot_mcp-nautobot-1 nautobot-server createsuperuser --username admin --email admin@example.com
+```
 
-1. **Create admin user** (run this command):
+### Step 4: Get API Token
+1. Go to http://localhost:8080 and log in
+2. Navigate to **User Profile** → **API Tokens** → **Add token**
+3. Copy the token and update your `.env` file:
    ```bash
-   docker compose exec nautobot nautobot-server createsuperuser --username <user_name> --email admin@example.com
+   NAUTOBOT_TOKEN=your_api_token_here
    ```
-   - Enter your desired username when prompted
-   - Enter your desired password when prompted
-   - Confirm the password when prompted
+4. Restart services:
+   ```bash
+   docker-compose restart
+   ```
 
-2. **Get your API token**:
-   - Go to http://localhost:8080 and log in with your username and password
-   - Navigate to your **User Profile** (click your username in the top right)
-   - Go to the **API Tokens** tab
-   - Click **Add token** and create a new token
-   - Copy the token key and update your `.env` file:
-     ```bash
-     NAUTOBOT_TOKEN=your_api_token_here
-     ```
-   - Restart the services: `make restart`
+### Step 5: Access Chat UI
+Open http://localhost:8501 in your browser
 
-## MCP Tools Available
+## 🛠️ MCP Tools Available
 
-1. **`get_prefixes_by_location`** - Returns all prefixes under a Nautobot Location
-2. **`llm_chat`** - LLM assistant that can call other MCP tools and cite usage
+1. **`get_prefixes_by_location_enhanced`** - Query prefixes by location with format options
+2. **`get_devices_by_location`** - Get devices at a specific location
+3. **`get_devices_by_location_and_role`** - Get devices by location and role
+4. **`llm_chat`** - LLM assistant that can call other MCP tools
 
-## Demo Data Structure
+## 📊 Demo Data Structure
 
 The system includes a comprehensive network topology:
 
@@ -75,34 +80,26 @@ The system includes a comprehensive network topology:
 - **Interfaces**: Properly configured with VLANs and IP addressing
 - **IPAM**: Prefixes associated with locations and interfaces
 
-## Development
+## 💬 Example Queries
 
-```bash
-# Run tests
-make test
+Try these in the chat UI:
+- "What prefixes exist at HQ-Dallas?"
+- "Show me all devices at HQ-Dallas"
+- "What routers are at HQ-Dallas?"
+- "Export the prefixes at HQ-Dallas as a table"
 
-# Format code
-make format
-
-# Lint code
-make lint
-
-# Type check
-make typecheck
-```
-
-## Export Chat Transcripts
+## 📤 Export Chat Transcripts
 
 The chat UI can export conversations in:
 - **JSON format** - Complete conversation with tool call metadata
 - **Markdown format** - Readable log with tool call details
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 +-------------------+         +-------------------+       +------------------+
-|  Streamlit Chat   | <-----> |  MCP Client SDK   | <-->  |  FastMCP Server  |
-|  (LLM front-end)  |         |  (tool catalog)   |       |  (Nautobot tools)|
+|  Chat UI         | <-----> |  MCP Client SDK   | <-->  |  FastMCP Server  |
+|  (Flask/HTML)    |         |  (tool catalog)   |       |  (Nautobot tools)|
 +-------------------+         +-------------------+       +--------+---------+
                                                                      |
                                                                      v
@@ -112,6 +109,12 @@ The chat UI can export conversations in:
                                                              +---------------+
 ```
 
-## License
+## 🔍 Troubleshooting
+
+- **Services not starting**: Check `docker-compose logs` for errors
+- **Chat UI not loading**: Ensure all services are healthy with `docker-compose ps`
+- **API errors**: Verify your `NAUTOBOT_TOKEN` is set correctly in `.env`
+
+## 📝 License
 
 Apache-2.0

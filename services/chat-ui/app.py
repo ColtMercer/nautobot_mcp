@@ -82,6 +82,9 @@ def index():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """Handle chat requests."""
+    import time
+    start_time = time.time()
+    
     data = request.get_json()
     prompt = data.get('message', '')
     selected_servers = data.get('selected_servers', [])
@@ -127,6 +130,7 @@ def chat():
         response_data = None
         
         if use_openai:
+            logger.info(f"[TIMING] Starting OpenAI processing at {time.time() - start_time:.2f}s")
             client = OpenAI()
             model = os.environ.get('OPENAI_MODEL', os.environ.get('DEFAULT_MODEL', 'gpt-4o-mini'))
             system_prompt = (
@@ -275,19 +279,23 @@ def chat():
                     }
                 }
             ]
+            logger.info(f"[TIMING] Making first OpenAI API call at {time.time() - start_time:.2f}s")
             first = client.chat.completions.create(
                 model=model,
                 messages=messages,
                 tools=tools,
                 tool_choice="auto",
             )
+            logger.info(f"[TIMING] First OpenAI API call completed at {time.time() - start_time:.2f}s")
             choice = first.choices[0]
             msg = choice.message
             if msg.tool_calls:
                 messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
+                logger.info(f"[TIMING] Processing {len(msg.tool_calls)} tool calls at {time.time() - start_time:.2f}s")
                 for tc in msg.tool_calls:
                     fn = tc.function
                     name = fn.name
+                    logger.info(f"[TIMING] Invoking tool '{name}' at {time.time() - start_time:.2f}s")
                     try:
                         args = json.loads(fn.arguments or '{}')
                     except Exception:
@@ -296,26 +304,32 @@ def chat():
                     if name == 'get_prefixes_by_location_enhanced':
                         location_name = args.get('location_name', '')
                         fmt = args.get('format', 'json')
+                        logger.info(f"[TIMING] Calling MCP tool 'get_prefixes_by_location_enhanced' for location '{location_name}' at {time.time() - start_time:.2f}s")
                         api_result = invoke_tool_on_server(
                             server_name,
                             'get_prefixes_by_location_enhanced',
                             {"location_name": location_name, "format": fmt}
                         )
+                        logger.info(f"[TIMING] MCP tool 'get_prefixes_by_location_enhanced' completed at {time.time() - start_time:.2f}s")
                     elif name == 'get_devices_by_location':
                         location_name = args.get('location_name', '')
+                        logger.info(f"[TIMING] Calling MCP tool 'get_devices_by_location' for location '{location_name}' at {time.time() - start_time:.2f}s")
                         api_result = invoke_tool_on_server(
                             server_name,
                             'get_devices_by_location',
                             {"location_name": location_name}
                         )
+                        logger.info(f"[TIMING] MCP tool 'get_devices_by_location' completed at {time.time() - start_time:.2f}s")
                     elif name == 'get_devices_by_location_and_role':
                         location_name = args.get('location_name', '')
                         role_name = args.get('role_name', '')
+                        logger.info(f"[TIMING] Calling MCP tool 'get_devices_by_location_and_role' for location '{location_name}', role '{role_name}' at {time.time() - start_time:.2f}s")
                         api_result = invoke_tool_on_server(
                             server_name,
                             'get_devices_by_location_and_role',
                             {"location_name": location_name, "role_name": role_name}
                         )
+                        logger.info(f"[TIMING] MCP tool 'get_devices_by_location_and_role' completed at {time.time() - start_time:.2f}s")
                     else:
                         api_result = {"error": f"Unknown tool {name}"}
                     
@@ -336,11 +350,14 @@ def chat():
                         "tool_call_id": tc.id, 
                         "content": json.dumps(tool_result)
                     })
+                logger.info(f"[TIMING] Making second OpenAI API call at {time.time() - start_time:.2f}s")
                 second = client.chat.completions.create(model=model, messages=messages)
+                logger.info(f"[TIMING] Second OpenAI API call completed at {time.time() - start_time:.2f}s")
                 assistant_response = second.choices[0].message.content or ""
             else:
                 assistant_response = msg.content or ""
         else:
+            logger.info(f"[TIMING] Using MCP llm_chat tool at {time.time() - start_time:.2f}s")
             result = invoke_tool_on_server(
                 server_name,
                 "llm_chat",
@@ -349,6 +366,7 @@ def chat():
                     "conversation_history": conversation_history
                 }
             )
+            logger.info(f"[TIMING] MCP llm_chat tool completed at {time.time() - start_time:.2f}s")
             if "error" in result:
                 assistant_response = f"Error: {result['error']}"
             else:
@@ -413,13 +431,19 @@ def chat():
         except Exception as e:
             logger.error(f"Failed to persist conversation data: {e}")
         
+        total_time = time.time() - start_time
+        logger.info(f"[TIMING] Total request completed in {total_time:.2f}s")
+        
         return jsonify({
             'success': True,
             'response': assistant_response,
             'citations': citations,
             'data': response_data,
             'chat_history': chat_history,
-            'context_history': []
+            'context_history': [],
+            'timing': {
+                'total_time': total_time
+            }
         })
         
     except Exception as e:
@@ -448,11 +472,17 @@ def chat():
         except Exception as persist_error:
             logger.error(f"Failed to persist error: {persist_error}")
         
+        total_time = time.time() - start_time
+        logger.info(f"[TIMING] Request failed after {total_time:.2f}s")
+        
         return jsonify({
             'success': False,
             'error': error_response,
             'chat_history': chat_history,
-            'context_history': []
+            'context_history': [],
+            'timing': {
+                'total_time': total_time
+            }
         })
 
 
