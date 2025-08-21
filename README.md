@@ -140,6 +140,45 @@ The chat UI can export conversations in:
                                                              +---------------+
 ```
 
+## 🤝 Contributing New Tools
+
+To add new MCP tools to the server:
+
+### **1. Add Tool Function**
+Create your tool function in `services/mcp-nautobot/mcp_server/tools/` directory.
+
+### **2. Register Tool in Server**
+Add the tool to `services/mcp-nautobot/mcp_server/server.py`:
+
+```python
+# Create Tool instance
+my_tool = Tool.from_function(
+    fn=my_tool_function,
+    name="my_tool_name",
+    description="""Detailed description of what the tool does.
+
+        Args:
+            param1: Description of parameter 1
+            param2: Description of parameter 2
+
+        Returns:
+            Description of what the tool returns
+        """
+)
+
+# Add to server
+server.add_tool(my_tool)
+```
+
+### **3. Tool Descriptions & LLM Communication**
+The `description` field is crucial - it's what the LLM reads to understand:
+- **What the tool does**
+- **What parameters it accepts**
+- **What it returns**
+- **Example values and formats**
+
+The LLM uses this description to decide when and how to call your tool. Be specific and include examples!
+
 ## 🔍 Troubleshooting
 
 - **Services not starting**: Check `docker-compose logs` for errors
