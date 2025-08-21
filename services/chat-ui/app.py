@@ -355,24 +355,13 @@ def chat():
                 logger.info(f"[TIMING] Second OpenAI API call completed at {time.time() - start_time:.2f}s")
                 assistant_response = second.choices[0].message.content or ""
             else:
-                assistant_response = msg.content or ""
+                # No tool calls made - use the assistant's direct response
+                assistant_response = msg.content or "I don't have any specific tools to help with that request. Please try asking about network devices, prefixes, or locations using the available tools."
+                citations = []
         else:
-            logger.info(f"[TIMING] Using MCP llm_chat tool at {time.time() - start_time:.2f}s")
-            result = invoke_tool_on_server(
-                server_name,
-                "llm_chat",
-                {
-                    "message": prompt,
-                    "conversation_history": conversation_history
-                }
-            )
-            logger.info(f"[TIMING] MCP llm_chat tool completed at {time.time() - start_time:.2f}s")
-            if "error" in result:
-                assistant_response = f"Error: {result['error']}"
-            else:
-                tool_result = result.get("result", {})
-                assistant_response = tool_result.get("answer", "No response")
-                citations = tool_result.get("citations", [])
+            # No tool calls made - use the assistant's direct response
+            assistant_response = msg.content or "I don't have any specific tools to help with that request. Please try asking about network devices, prefixes, or locations using the available tools."
+            citations = []
         
         # Check if the LLM requested any specific format and prepare response data
         response_data = None
