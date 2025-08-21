@@ -86,32 +86,14 @@ services:
     networks:
       - devnet
 
-  nautobot-init:
-    build: ./services/nautobot-init
-    environment:
-      NAUTOBOT_DB_HOST: db
-      NAUTOBOT_DB_NAME: ${POSTGRES_DB:-nautobot}
-      NAUTOBOT_DB_USER: ${POSTGRES_USER:-nautobot}
-      NAUTOBOT_DB_PASSWORD: ${POSTGRES_PASSWORD:-nautobot}
-      NAUTOBOT_REDIS_HOST: redis
-      NAUTOBOT_REDIS_PORT: 6379
-      NAUTOBOT_ALLOWED_HOSTS: "*"
-      NAUTOBOT_DEBUG: ${DEBUG:-true}
-      NAUTOBOT_SECRET_KEY: changeme-secret-key-for-development-only
-    depends_on:
-      nautobot:
-        condition: service_healthy
-    networks:
-      - devnet
-
   seed-data:
     build: ./services/seed-data
     environment:
       NAUTOBOT_URL: ${NAUTOBOT_URL:-http://nautobot:8080}
       NAUTOBOT_TOKEN: ${NAUTOBOT_TOKEN:-nautobot-mcp-token-1234567890abcdef}
     depends_on:
-      nautobot-init:
-        condition: service_completed_successfully
+      nautobot:
+        condition: service_healthy
     networks:
       - devnet
 
