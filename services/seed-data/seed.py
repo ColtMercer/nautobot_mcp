@@ -374,17 +374,19 @@ def create_interface(device_id: str, name: str, interface_type: str = "1000base-
         print(f"Failed to create interface {name}: {response.status_code} - {response.text}")
         return None
 
-def create_ip_address(ip_address: str, namespace_id: str = None, status: str = "Active") -> Dict[str, Any]:
+def create_ip_address(ip_address: str, namespace_id: str = None, status_id: str = None) -> Dict[str, Any]:
     """Create an IP address."""
     print(f"DEBUG: Creating IP address {ip_address}")
     
     data = {
-        "address": ip_address,
-        "status": status
+        "address": ip_address
     }
 
     if namespace_id:
         data["namespace"] = namespace_id
+    
+    if status_id:
+        data["status"] = status_id
     
     print(f"DEBUG: IP address data: {data}")
     
@@ -412,6 +414,27 @@ def create_ip_address(ip_address: str, namespace_id: str = None, status: str = "
             if existing_ips:
                 print(f"Found existing IP address: {ip_address}")
                 return existing_ips[0]
+            else:
+                print(f"WARNING: IP address {ip_address} said to exist but not found in API")
+                # Try creating it again without the parent prefix
+                data_without_parent = {
+                    "address": ip_address
+                }
+                if namespace_id:
+                    data_without_parent["namespace"] = namespace_id
+                if status_id:
+                    data_without_parent["status"] = status_id
+                
+                retry_response = requests.post(
+                    f"{NAUTOBOT_URL}/api/ipam/ip-addresses/",
+                    json=data_without_parent,
+                    headers=HEADERS
+                )
+                if retry_response.status_code == 201:
+                    print(f"Successfully created IP address {ip_address} on retry")
+                    return retry_response.json()
+                else:
+                    print(f"Failed to create IP address {ip_address} on retry: {retry_response.status_code} - {retry_response.text}")
         return None
     else:
         print(f"Failed to create IP address {ip_address}: {response.status_code} - {response.text}")
@@ -423,7 +446,14 @@ def assign_ip_to_interface(ip_address_id: str, interface_id: str) -> bool:
     
     data = {
         "ip_address": ip_address_id,
-        "interface": interface_id
+        "interface": interface_id,
+        "is_source": True,
+        "is_destination": True,
+        "is_default": True,
+        "is_preferred": True,
+        "is_primary": True,
+        "is_secondary": False,
+        "is_standby": False
     }
     
     print(f"DEBUG: IP-to-interface assignment data: {data}")
@@ -774,8 +804,7 @@ def create_circuit(cid: str, circuit_type_id: str, provider_id: str, location_id
         print(f"Failed to create circuit {cid}: {response.status_code} - {response.text}")
         return None
 
-def create_circuit_termination(circuit_id: str, location_id: str, interface_id: str = None,
-                              term_side: str = "A", port_speed: int = 1000) -> Dict[str, Any]:
+def create_circuit_termination(circuit_id: str, location_id: str, term_side: str = "A", port_speed: int = 1000) -> Dict[str, Any]:
     """Create a circuit termination."""
     data = {
         "circuit": circuit_id,
@@ -786,10 +815,6 @@ def create_circuit_termination(circuit_id: str, location_id: str, interface_id: 
     
     if location_id:
         data["location"] = location_id
-    
-    if interface_id:
-        data["connected_endpoint_type"] = "dcim.interface"
-        data["connected_endpoint_id"] = interface_id
     
     response = requests.post(
         f"{NAUTOBOT_URL}/api/circuits/circuit-terminations/",
@@ -814,6 +839,41 @@ def create_circuit_termination(circuit_id: str, location_id: str, interface_id: 
         return None
     else:
         print(f"Failed to create circuit termination {term_side} side for circuit {circuit_id}: {response.status_code} - {response.text}")
+        return None
+
+def create_cable_connection(termination_a_type: str, termination_a_id: str, termination_b_type: str, termination_b_id: str) -> Dict[str, Any]:
+    """Create a cable to connect two terminations."""
+    # Get the Connected status ID for cables
+    connected_status_id = get_status_id("Connected")
+    
+    data = {
+        "termination_a_type": termination_a_type,
+        "termination_a_id": termination_a_id,
+        "termination_b_type": termination_b_type,
+        "termination_b_id": termination_b_id,
+        "type": "cat6"
+    }
+    
+    if connected_status_id:
+        data["status"] = connected_status_id
+    else:
+        # If we can't get the status ID, try using the name
+        data["status"] = "Connected"
+    
+    response = requests.post(
+        f"{NAUTOBOT_URL}/api/dcim/cables/",
+        json=data,
+        headers=HEADERS
+    )
+    
+    if response.status_code == 201:
+        print(f"Created cable connection between {termination_a_type} {termination_a_id} and {termination_b_type} {termination_b_id}")
+        return response.json()
+    elif response.status_code == 400 and "already exists" in response.text:
+        print(f"Cable connection already exists between {termination_a_type} {termination_a_id} and {termination_b_type} {termination_b_id}")
+        return None
+    else:
+        print(f"Failed to create cable connection: {response.status_code} - {response.text}")
         return None
 
 def seed_data():
@@ -914,12 +974,12 @@ def seed_data():
         print("ERROR: Failed to create regions")
         return
     
-    # Create countries (no parent since Country location type doesn't allow parents)
-    usa = create_location("United States", country_type_id)
-    uk = create_location("United Kingdom", country_type_id)
-    korea = create_location("Republic of Korea", country_type_id)
-    brazil = create_location("Brazil", country_type_id)
-    mexico = create_location("Mexico", country_type_id)
+    # Create countries with their respective region parents
+    usa = create_location("United States", country_type_id, north_america["id"])
+    uk = create_location("United Kingdom", country_type_id, europe["id"])
+    korea = create_location("Republic of Korea", country_type_id, asia["id"])
+    brazil = create_location("Brazil", country_type_id, latam["id"])
+    mexico = create_location("Mexico", country_type_id, north_america["id"])
     
     if not usa or not uk or not korea or not brazil or not mexico:
         print("ERROR: Failed to create countries")
@@ -939,15 +999,15 @@ def seed_data():
         print("ERROR: Failed to create campuses and data centers")
         return
     
-    # Create branch offices (no parent since Branch location types don't allow parents)
-    branch_001 = create_location("USBN1", branch_type_id)
-    branch_002 = create_location("MXBN1", branch_type_id)
-    branch_003 = create_location("UKBN1", branch_type_id)
-    branch_004 = create_location("BRBN1", branch_type_id)
-    branch_005 = create_location("USBN2", branch_type_id)
-    branch_006 = create_location("MXBN2", branch_type_id)
-    branch_007 = create_location("UKBN2", branch_type_id)
-    branch_008 = create_location("BRBN2", branch_type_id)
+    # Create branch offices with their respective country parents
+    branch_001 = create_location("USBN1", branch_type_id, usa["id"])
+    branch_002 = create_location("MXBN1", branch_type_id, mexico["id"])
+    branch_003 = create_location("UKBN1", branch_type_id, uk["id"])
+    branch_004 = create_location("BRBN1", branch_type_id, brazil["id"])
+    branch_005 = create_location("USBN2", branch_type_id, usa["id"])
+    branch_006 = create_location("MXBN2", branch_type_id, mexico["id"])
+    branch_007 = create_location("UKBN2", branch_type_id, uk["id"])
+    branch_008 = create_location("BRBN2", branch_type_id, brazil["id"])
     
     if not all([branch_001, branch_002, branch_003, branch_004, branch_005, branch_006, branch_007, branch_008]):
         print("ERROR: Failed to create branch offices")
@@ -1073,10 +1133,218 @@ def seed_data():
     
     print(f"Created {len(device_ids)} devices")
     
-    # Clean up existing interfaces before creating new ones
-    cleanup_existing_interfaces()
+    # Create prefixes for each location first
+    print("\n=== Creating Prefixes ===")
+    prefix_configs = [
+        (dallas_campus["id"], "10.1.0.0/16", "Main network for Dallas Campus"),
+        (london_campus["id"], "10.2.0.0/16", "Main network for London Campus"),
+        (korea_campus["id"], "10.3.0.0/16", "Main network for Korea Campus"),
+        (brazil_campus["id"], "10.4.0.0/16", "Main network for Brazil Campus"),
+        (mexico_campus["id"], "10.5.0.0/16", "Main network for Mexico Campus"),
+        (nyc_dc["id"], "10.10.0.0/16", "Data center network for NYC"),
+        (lon_dc["id"], "10.20.0.0/16", "Data center network for London"),
+        (korea_campus["id"], "10.30.0.0/16", "Core network for Korea Campus"),
+        (brazil_campus["id"], "10.40.0.0/16", "Core network for Brazil Campus"),
+        (mexico_campus["id"], "10.50.0.0/16", "Core network for Mexico Campus"),
+        (branch_001["id"], "10.100.1.0/24", "Branch office network 1"),
+        (branch_002["id"], "10.100.2.0/24", "Branch office network 2"),
+        (branch_003["id"], "10.100.3.0/24", "Branch office network 3"),
+        (branch_004["id"], "10.100.4.0/24", "Branch office network 4"),
+        (branch_005["id"], "10.100.5.0/24", "Branch office network 5"),
+        (branch_006["id"], "10.100.6.0/24", "Branch office network 6"),
+        (branch_007["id"], "10.100.7.0/24", "Branch office network 7"),
+        (branch_008["id"], "10.100.8.0/24", "Branch office network 8"),
+        (None, "203.0.113.0/24", "WAN network for branch offices")
+    ]
     
-    # Create interfaces and IP addresses
+    prefix_count = 0
+    for location_id, prefix, description in prefix_configs:
+        if create_prefix(prefix, location_id, description, global_ns_id):
+            prefix_count += 1
+            
+            # Create some subnets for each location (skip for WAN networks)
+            if location_id:
+                for i in range(3):
+                    base_prefix = prefix.split('/')[0]
+                    base_parts = base_prefix.split('.')
+                    if prefix.endswith("/16"):
+                        # For /16 networks, create /24 subnets
+                        third_octet = int(base_parts[2]) + (i * 50)
+                        subnet = f"{base_parts[0]}.{base_parts[1]}.{third_octet}.0/24"
+                    else:
+                        # For /24 networks, create smaller subnets
+                        fourth_octet = int(base_parts[3]) + (i * 10)
+                        subnet = f"{base_parts[0]}.{base_parts[1]}.{base_parts[2]}.{fourth_octet}/26"
+                    if create_prefix(subnet, location_id, f"Subnet {i+1} for location", global_ns_id):
+                        prefix_count += 1
+    
+    # Create /31 prefixes for spine/leaf connections
+    print("\n=== Creating /31 Prefixes for Spine/Leaf Connections ===")
+    spine_leaf_prefixes = [
+        # NYC Data Center Spine/Leaf /31 prefixes
+        (nyc_dc["id"], "10.10.100.0/31", "NYDC Spine-Leaf connection 1"),
+        (nyc_dc["id"], "10.10.100.2/31", "NYDC Spine-Leaf connection 2"),
+        (nyc_dc["id"], "10.10.100.4/31", "NYDC Spine-Leaf connection 3"),
+        (nyc_dc["id"], "10.10.100.6/31", "NYDC Spine-Leaf connection 4"),
+        (nyc_dc["id"], "10.10.100.8/31", "NYDC Spine-Leaf connection 5"),
+        (nyc_dc["id"], "10.10.100.10/31", "NYDC Spine-Leaf connection 6"),
+        (nyc_dc["id"], "10.10.100.12/31", "NYDC Spine-Leaf connection 7"),
+        (nyc_dc["id"], "10.10.100.14/31", "NYDC Spine-Leaf connection 8"),
+        (nyc_dc["id"], "10.10.100.16/31", "NYDC Spine-Leaf connection 9"),
+        (nyc_dc["id"], "10.10.100.18/31", "NYDC Spine-Leaf connection 10"),
+        (nyc_dc["id"], "10.10.100.20/31", "NYDC Spine-Leaf connection 11"),
+        (nyc_dc["id"], "10.10.100.22/31", "NYDC Spine-Leaf connection 12"),
+        (nyc_dc["id"], "10.10.100.24/31", "NYDC Spine-Leaf connection 13"),
+        (nyc_dc["id"], "10.10.100.26/31", "NYDC Spine-Leaf connection 14"),
+        (nyc_dc["id"], "10.10.100.28/31", "NYDC Spine-Leaf connection 15"),
+        (nyc_dc["id"], "10.10.100.30/31", "NYDC Spine-Leaf connection 16"),
+        (nyc_dc["id"], "10.10.100.32/31", "NYDC Spine-Leaf connection 17"),
+        (nyc_dc["id"], "10.10.100.34/31", "NYDC Spine-Leaf connection 18"),
+        (nyc_dc["id"], "10.10.100.36/31", "NYDC Spine-Leaf connection 19"),
+        (nyc_dc["id"], "10.10.100.38/31", "NYDC Spine-Leaf connection 20"),
+        (nyc_dc["id"], "10.10.100.40/31", "NYDC Spine-Leaf connection 21"),
+        (nyc_dc["id"], "10.10.100.42/31", "NYDC Spine-Leaf connection 22"),
+        (nyc_dc["id"], "10.10.100.44/31", "NYDC Spine-Leaf connection 23"),
+        (nyc_dc["id"], "10.10.100.46/31", "NYDC Spine-Leaf connection 24"),
+        (nyc_dc["id"], "10.10.100.48/31", "NYDC Spine-Leaf connection 25"),
+        (nyc_dc["id"], "10.10.100.50/31", "NYDC Spine-Leaf connection 26"),
+        (nyc_dc["id"], "10.10.100.52/31", "NYDC Spine-Leaf connection 27"),
+        (nyc_dc["id"], "10.10.100.54/31", "NYDC Spine-Leaf connection 28"),
+        (nyc_dc["id"], "10.10.100.56/31", "NYDC Spine-Leaf connection 29"),
+        (nyc_dc["id"], "10.10.100.58/31", "NYDC Spine-Leaf connection 30"),
+        (nyc_dc["id"], "10.10.100.60/31", "NYDC Spine-Leaf connection 31"),
+        (nyc_dc["id"], "10.10.100.62/31", "NYDC Spine-Leaf connection 32"),
+        (nyc_dc["id"], "10.10.100.64/31", "NYDC Spine-Leaf connection 33"),
+        (nyc_dc["id"], "10.10.100.66/31", "NYDC Spine-Leaf connection 34"),
+        (nyc_dc["id"], "10.10.100.68/31", "NYDC Spine-Leaf connection 35"),
+        (nyc_dc["id"], "10.10.100.70/31", "NYDC Spine-Leaf connection 36"),
+        (nyc_dc["id"], "10.10.100.72/31", "NYDC Spine-Leaf connection 37"),
+        (nyc_dc["id"], "10.10.100.74/31", "NYDC Spine-Leaf connection 38"),
+        (nyc_dc["id"], "10.10.100.76/31", "NYDC Spine-Leaf connection 39"),
+        (nyc_dc["id"], "10.10.100.78/31", "NYDC Spine-Leaf connection 40"),
+        (nyc_dc["id"], "10.10.100.80/31", "NYDC Spine-Leaf connection 41"),
+        (nyc_dc["id"], "10.10.100.82/31", "NYDC Spine-Leaf connection 42"),
+        (nyc_dc["id"], "10.10.100.84/31", "NYDC Spine-Leaf connection 43"),
+        (nyc_dc["id"], "10.10.100.86/31", "NYDC Spine-Leaf connection 44"),
+        (nyc_dc["id"], "10.10.100.88/31", "NYDC Spine-Leaf connection 45"),
+        (nyc_dc["id"], "10.10.100.90/31", "NYDC Spine-Leaf connection 46"),
+        (nyc_dc["id"], "10.10.100.92/31", "NYDC Spine-Leaf connection 47"),
+        (nyc_dc["id"], "10.10.100.94/31", "NYDC Spine-Leaf connection 48"),
+        (nyc_dc["id"], "10.10.100.96/31", "NYDC Spine-Leaf connection 49"),
+        (nyc_dc["id"], "10.10.100.98/31", "NYDC Spine-Leaf connection 50"),
+        (nyc_dc["id"], "10.10.100.100/31", "NYDC Spine-Leaf connection 51"),
+        (nyc_dc["id"], "10.10.100.102/31", "NYDC Spine-Leaf connection 52"),
+        (nyc_dc["id"], "10.10.100.104/31", "NYDC Spine-Leaf connection 53"),
+        (nyc_dc["id"], "10.10.100.106/31", "NYDC Spine-Leaf connection 54"),
+        
+        # London Data Center Spine/Leaf /31 prefixes
+        (lon_dc["id"], "10.30.100.0/31", "LODC Spine-Leaf connection 1"),
+        (lon_dc["id"], "10.30.100.2/31", "LODC Spine-Leaf connection 2"),
+        (lon_dc["id"], "10.30.100.4/31", "LODC Spine-Leaf connection 3"),
+        (lon_dc["id"], "10.30.100.6/31", "LODC Spine-Leaf connection 4"),
+        (lon_dc["id"], "10.30.100.8/31", "LODC Spine-Leaf connection 5"),
+        (lon_dc["id"], "10.30.100.10/31", "LODC Spine-Leaf connection 6"),
+        (lon_dc["id"], "10.30.100.12/31", "LODC Spine-Leaf connection 7"),
+        (lon_dc["id"], "10.30.100.14/31", "LODC Spine-Leaf connection 8"),
+        (lon_dc["id"], "10.30.100.16/31", "LODC Spine-Leaf connection 9"),
+        (lon_dc["id"], "10.30.100.18/31", "LODC Spine-Leaf connection 10"),
+        (lon_dc["id"], "10.30.100.20/31", "LODC Spine-Leaf connection 11"),
+        (lon_dc["id"], "10.30.100.22/31", "LODC Spine-Leaf connection 12"),
+        (lon_dc["id"], "10.30.100.24/31", "LODC Spine-Leaf connection 13"),
+        (lon_dc["id"], "10.30.100.26/31", "LODC Spine-Leaf connection 14"),
+        (lon_dc["id"], "10.30.100.28/31", "LODC Spine-Leaf connection 15"),
+        (lon_dc["id"], "10.30.100.30/31", "LODC Spine-Leaf connection 16"),
+        (lon_dc["id"], "10.30.100.32/31", "LODC Spine-Leaf connection 17"),
+        (lon_dc["id"], "10.30.100.34/31", "LODC Spine-Leaf connection 18"),
+        (lon_dc["id"], "10.30.100.36/31", "LODC Spine-Leaf connection 19"),
+        (lon_dc["id"], "10.30.100.38/31", "LODC Spine-Leaf connection 20"),
+        (lon_dc["id"], "10.30.100.40/31", "LODC Spine-Leaf connection 21"),
+        (lon_dc["id"], "10.30.100.42/31", "LODC Spine-Leaf connection 22"),
+        (lon_dc["id"], "10.30.100.44/31", "LODC Spine-Leaf connection 23"),
+        (lon_dc["id"], "10.30.100.46/31", "LODC Spine-Leaf connection 24"),
+        (lon_dc["id"], "10.30.100.48/31", "LODC Spine-Leaf connection 25"),
+        (lon_dc["id"], "10.30.100.50/31", "LODC Spine-Leaf connection 26"),
+        (lon_dc["id"], "10.30.100.52/31", "LODC Spine-Leaf connection 27"),
+        (lon_dc["id"], "10.30.100.54/31", "LODC Spine-Leaf connection 28"),
+        (lon_dc["id"], "10.30.100.56/31", "LODC Spine-Leaf connection 29"),
+        (lon_dc["id"], "10.30.100.58/31", "LODC Spine-Leaf connection 30"),
+        (lon_dc["id"], "10.30.100.60/31", "LODC Spine-Leaf connection 31"),
+        (lon_dc["id"], "10.30.100.62/31", "LODC Spine-Leaf connection 32"),
+        (lon_dc["id"], "10.30.100.64/31", "LODC Spine-Leaf connection 33"),
+        (lon_dc["id"], "10.30.100.66/31", "LODC Spine-Leaf connection 34"),
+        (lon_dc["id"], "10.30.100.68/31", "LODC Spine-Leaf connection 35"),
+        (lon_dc["id"], "10.30.100.70/31", "LODC Spine-Leaf connection 36"),
+        (lon_dc["id"], "10.30.100.72/31", "LODC Spine-Leaf connection 37"),
+        (lon_dc["id"], "10.30.100.74/31", "LODC Spine-Leaf connection 38"),
+        (lon_dc["id"], "10.30.100.76/31", "LODC Spine-Leaf connection 39"),
+        (lon_dc["id"], "10.30.100.78/31", "LODC Spine-Leaf connection 40"),
+        (lon_dc["id"], "10.30.100.80/31", "LODC Spine-Leaf connection 41"),
+        (lon_dc["id"], "10.30.100.82/31", "LODC Spine-Leaf connection 42"),
+        (lon_dc["id"], "10.30.100.84/31", "LODC Spine-Leaf connection 43"),
+        (lon_dc["id"], "10.30.100.86/31", "LODC Spine-Leaf connection 44"),
+        (lon_dc["id"], "10.30.100.88/31", "LODC Spine-Leaf connection 45"),
+        (lon_dc["id"], "10.30.100.90/31", "LODC Spine-Leaf connection 46"),
+        (lon_dc["id"], "10.30.100.92/31", "LODC Spine-Leaf connection 47"),
+        (lon_dc["id"], "10.30.100.94/31", "LODC Spine-Leaf connection 48"),
+        (lon_dc["id"], "10.30.100.96/31", "LODC Spine-Leaf connection 49"),
+        (lon_dc["id"], "10.30.100.98/31", "LODC Spine-Leaf connection 50"),
+        (lon_dc["id"], "10.30.100.100/31", "LODC Spine-Leaf connection 51"),
+        (lon_dc["id"], "10.30.100.102/31", "LODC Spine-Leaf connection 52"),
+        (lon_dc["id"], "10.30.100.104/31", "LODC Spine-Leaf connection 53"),
+        (lon_dc["id"], "10.30.100.106/31", "LODC Spine-Leaf connection 54"),
+        (lon_dc["id"], "10.30.100.108/31", "LODC Spine-Leaf connection 55"),
+        (lon_dc["id"], "10.30.100.110/31", "LODC Spine-Leaf connection 56"),
+        (lon_dc["id"], "10.30.100.112/31", "LODC Spine-Leaf connection 57"),
+        (lon_dc["id"], "10.30.100.114/31", "LODC Spine-Leaf connection 58"),
+        (lon_dc["id"], "10.30.100.116/31", "LODC Spine-Leaf connection 59"),
+        (lon_dc["id"], "10.30.100.118/31", "LODC Spine-Leaf connection 60"),
+        (lon_dc["id"], "10.30.100.120/31", "LODC Spine-Leaf connection 61"),
+        (lon_dc["id"], "10.30.100.122/31", "LODC Spine-Leaf connection 62"),
+        (lon_dc["id"], "10.30.100.124/31", "LODC Spine-Leaf connection 63"),
+        (lon_dc["id"], "10.30.100.126/31", "LODC Spine-Leaf connection 64"),
+        
+        # London Data Center Leaf Compute /31 prefixes
+        (lon_dc["id"], "10.30.200.0/31", "LODC Leaf-Compute connection 1"),
+        (lon_dc["id"], "10.30.200.2/31", "LODC Leaf-Compute connection 2"),
+        (lon_dc["id"], "10.30.200.4/31", "LODC Leaf-Compute connection 3"),
+        (lon_dc["id"], "10.30.200.6/31", "LODC Leaf-Compute connection 4"),
+        (lon_dc["id"], "10.30.200.8/31", "LODC Leaf-Compute connection 5"),
+        (lon_dc["id"], "10.30.200.10/31", "LODC Leaf-Compute connection 6"),
+        (lon_dc["id"], "10.30.200.12/31", "LODC Leaf-Compute connection 7"),
+        (lon_dc["id"], "10.30.200.14/31", "LODC Leaf-Compute connection 8"),
+        (lon_dc["id"], "10.30.200.16/31", "LODC Leaf-Compute connection 9"),
+        (lon_dc["id"], "10.30.200.18/31", "LODC Leaf-Compute connection 10"),
+        (lon_dc["id"], "10.30.200.20/31", "LODC Leaf-Compute connection 11"),
+        (lon_dc["id"], "10.30.200.22/31", "LODC Leaf-Compute connection 12"),
+        (lon_dc["id"], "10.30.200.24/31", "LODC Leaf-Compute connection 13"),
+        (lon_dc["id"], "10.30.200.26/31", "LODC Leaf-Compute connection 14"),
+        (lon_dc["id"], "10.30.200.28/31", "LODC Leaf-Compute connection 15"),
+        (lon_dc["id"], "10.30.200.30/31", "LODC Leaf-Compute connection 16"),
+        (lon_dc["id"], "10.30.200.32/31", "LODC Leaf-Compute connection 17"),
+        (lon_dc["id"], "10.30.200.34/31", "LODC Leaf-Compute connection 18"),
+        (lon_dc["id"], "10.30.200.36/31", "LODC Leaf-Compute connection 19"),
+        (lon_dc["id"], "10.30.200.38/31", "LODC Leaf-Compute connection 20"),
+        (lon_dc["id"], "10.30.200.40/31", "LODC Leaf-Compute connection 21"),
+        (lon_dc["id"], "10.30.200.42/31", "LODC Leaf-Compute connection 22"),
+        (lon_dc["id"], "10.30.200.44/31", "LODC Leaf-Compute connection 23"),
+        (lon_dc["id"], "10.30.200.46/31", "LODC Leaf-Compute connection 24"),
+        (lon_dc["id"], "10.30.200.48/31", "LODC Leaf-Compute connection 25"),
+        (lon_dc["id"], "10.30.200.50/31", "LODC Leaf-Compute connection 26"),
+        (lon_dc["id"], "10.30.200.52/31", "LODC Leaf-Compute connection 27"),
+        (lon_dc["id"], "10.30.200.54/31", "LODC Leaf-Compute connection 28"),
+        (lon_dc["id"], "10.30.200.56/31", "LODC Leaf-Compute connection 29"),
+        (lon_dc["id"], "10.30.200.58/31", "LODC Leaf-Compute connection 30"),
+        (lon_dc["id"], "10.30.200.60/31", "LODC Leaf-Compute connection 31"),
+        (lon_dc["id"], "10.30.200.62/31", "LODC Leaf-Compute connection 32"),
+    ]
+    
+    for location_id, prefix, description in spine_leaf_prefixes:
+        if create_prefix(prefix, location_id, description, global_ns_id):
+            prefix_count += 1
+    
+    print(f"Created {prefix_count} prefixes total")
+    
+    # Create interfaces and IP addresses (skip cleanup to preserve existing assignments)
     print("\n=== Creating Interfaces and IP Addresses ===")
     interface_configs = [
         # WAN Router interfaces
@@ -1496,85 +1764,7 @@ def seed_data():
     
     print(f"Created {interface_count} interfaces (created or matched) and {ip_count} IP addresses")
     
-    # Create prefixes for each location
-    print("\n=== Creating Prefixes ===")
-    prefix_configs = [
-        (dallas_campus["id"], "10.1.0.0/16", "Main network for Dallas Campus"),
-        (london_campus["id"], "10.2.0.0/16", "Main network for London Campus"),
-        (korea_campus["id"], "10.3.0.0/16", "Main network for Kansas City Campus"),
-        (brazil_campus["id"], "10.4.0.0/16", "Main network for Brazil Campus"),
-        (mexico_campus["id"], "10.5.0.0/16", "Main network for Mexico Campus"),
-        (nyc_dc["id"], "10.10.0.0/16", "Data center network for NYC"),
-        (lon_dc["id"], "10.20.0.0/16", "Data center network for London"),
-        (korea_campus["id"], "10.30.0.0/16", "Core network for Kansas City Campus"),
-        (brazil_campus["id"], "10.40.0.0/16", "Core network for Brazil Campus"),
-        (mexico_campus["id"], "10.50.0.0/16", "Core network for Mexico Campus"),
-        (branch_001["id"], "10.100.1.0/24", "Branch office network 1"),
-        (branch_002["id"], "10.100.2.0/24", "Branch office network 2"),
-        (branch_003["id"], "10.100.3.0/24", "Branch office network 3"),
-        (branch_004["id"], "10.100.4.0/24", "Branch office network 4"),
-        (branch_005["id"], "10.100.5.0/24", "Branch office network 5"),
-        (branch_006["id"], "10.100.6.0/24", "Branch office network 6"),
-        (branch_007["id"], "10.100.7.0/24", "Branch office network 7"),
-        (branch_008["id"], "10.100.8.0/24", "Branch office network 8"),
-        (None, "203.0.113.0/24", "WAN network for branch offices")
-    ]
-    
-    prefix_count = 0
-    for location_id, prefix, description in prefix_configs:
-        if create_prefix(prefix, location_id, description, global_ns_id):
-            prefix_count += 1
-            
-            # Create some subnets for each location (skip for WAN networks)
-            if location_id:
-                for i in range(3):
-                    base_prefix = prefix.split('/')[0]
-                    base_parts = base_prefix.split('.')
-                    if prefix.endswith("/16"):
-                        # For /16 networks, create /24 subnets
-                        third_octet = int(base_parts[2]) + (i * 50)
-                        subnet = f"{base_parts[0]}.{base_parts[1]}.{third_octet}.0/24"
-                    else:
-                        # For /24 networks, create smaller subnets
-                        fourth_octet = int(base_parts[3]) + (i * 10)
-                        subnet = f"{base_parts[0]}.{base_parts[1]}.{base_parts[2]}.{fourth_octet}/26"
-                    if create_prefix(subnet, location_id, f"Subnet {i+1} for location", global_ns_id):
-                        prefix_count += 1
-    
-    print(f"Created {prefix_count} prefixes")
-    
-    # Update existing prefixes with location associations
-    print("\n=== Updating Existing Prefixes with Location Associations ===")
-    update_count = 0
-    for location_id, prefix, description in prefix_configs:
-        existing_prefix = get_prefix_by_network(prefix)
-        if existing_prefix and not existing_prefix.get("location") and location_id:
-            if update_prefix_location(existing_prefix["id"], location_id):
-                update_count += 1
-            
-            # Also update subnets
-            base_prefix = prefix.split('/')[0]
-            base_parts = base_prefix.split('.')
-            if prefix.endswith("/16"):
-                # For /16 networks, update /24 subnets
-                for i in range(3):
-                    third_octet = int(base_parts[2]) + (i * 50)
-                    subnet = f"{base_parts[0]}.{base_parts[1]}.{third_octet}.0/24"
-                    existing_subnet = get_prefix_by_network(subnet)
-                    if existing_subnet and not existing_subnet.get("location") and location_id:
-                        if update_prefix_location(existing_subnet["id"], location_id):
-                            update_count += 1
-            else:
-                # For /24 networks, update smaller subnets
-                for i in range(3):
-                    fourth_octet = int(base_parts[3]) + (i * 10)
-                    subnet = f"{base_parts[0]}.{base_parts[1]}.{base_parts[2]}.{fourth_octet}/26"
-                    existing_subnet = get_prefix_by_network(subnet)
-                    if existing_subnet and not existing_subnet.get("location") and location_id:
-                        if update_prefix_location(existing_subnet["id"], location_id):
-                            update_count += 1
-    
-    print(f"Updated {update_count} existing prefixes with location associations")
+
     
     # Create circuit types and providers
     print("\n=== Creating Circuit Types and Providers ===")
@@ -1588,8 +1778,10 @@ def seed_data():
     # Create providers
     providers = [
         ("AT&T", "att", "AT&T Communications"),
+        ("AT&T-MEX", "att-mex", "AT&T Communications Mexico"),
         ("Verizon", "verizon", "Verizon Business"),
         ("Comcast", "comcast", "Comcast Business"),
+        ("Comcast-MEX", "comcast-mex", "Comcast Business Mexico"),
         ("CenturyLink", "centurylink", "CenturyLink"),
         ("Cogent", "cogent", "Cogent Communications"),
         ("Level 3", "level3", "Level 3 Communications"),
@@ -1609,69 +1801,112 @@ def seed_data():
     # Create circuits for campuses and branches
     print("\n=== Creating Circuits ===")
     
-    # Circuit configurations for campuses (MPLS + Internet WAN)
-    campus_circuits = [
-        # Dallas Campus
-        ("DALCN-MPLS-01", mpls_type["id"], "AT&T", dallas_campus["id"], "MPLS circuit for Dallas Campus"),
-        ("DALCN-INT-01", internet_type["id"], "Comcast", dallas_campus["id"], "Internet WAN for Dallas Campus"),
-        
-        # London Campus
-        ("LOCN-MPLS-01", mpls_type["id"], "Verizon", london_campus["id"], "MPLS circuit for London Campus"),
-        ("LOCN-INT-01", internet_type["id"], "CenturyLink", london_campus["id"], "Internet WAN for London Campus"),
-        
-        # Korea Campus
-        ("KOCN-MPLS-01", mpls_type["id"], "Cogent", korea_campus["id"], "MPLS circuit for Korea Campus"),
-        ("KOCN-INT-01", internet_type["id"], "Level 3", korea_campus["id"], "Internet WAN for Korea Campus"),
-        
-        # Brazil Campus
-        ("BRCN-MPLS-01", mpls_type["id"], "Zayo", brazil_campus["id"], "MPLS circuit for Brazil Campus"),
-        ("BRCN-INT-01", internet_type["id"], "Windstream", brazil_campus["id"], "Internet WAN for Brazil Campus"),
-        
-        # Mexico Campus
-        ("MXCN-MPLS-01", mpls_type["id"], "AT&T", mexico_campus["id"], "MPLS circuit for Mexico Campus"),
-        ("MXCN-INT-01", internet_type["id"], "Comcast", mexico_campus["id"], "Internet WAN for Mexico Campus"),
-    ]
+
     
-    # Circuit configurations for branches (Internet WAN only)
-    branch_circuits = [
-        # Branch Office 1
-        ("USBN1-INT-01", internet_type["id"], "Verizon", branch_001["id"], "Internet WAN for Branch Office 1"),
-        ("USBN1-INT-02", internet_type["id"], "CenturyLink", branch_001["id"], "Backup Internet WAN for Branch Office 1"),
-        
-        # Branch Office 2
-        ("USBN2-INT-01", internet_type["id"], "Comcast", branch_002["id"], "Internet WAN for Branch Office 2"),
-        ("USBN2-INT-02", internet_type["id"], "AT&T", branch_002["id"], "Backup Internet WAN for Branch Office 2"),
-        
-        # Branch Office 3
-        ("UKBN1-INT-01", internet_type["id"], "Cogent", branch_003["id"], "Internet WAN for Branch Office 3"),
-        ("UKBN1-INT-02", internet_type["id"], "Level 3", branch_003["id"], "Backup Internet WAN for Branch Office 3"),
-        
-        # Branch Office 4
-        ("BRBN1-INT-01", internet_type["id"], "Zayo", branch_004["id"], "Internet WAN for Branch Office 4"),
-        ("BRBN1-INT-02", internet_type["id"], "Windstream", branch_004["id"], "Backup Internet WAN for Branch Office 4"),
-        
-        # Branch Office 5
-        ("USBN3-INT-01", internet_type["id"], "Verizon", branch_005["id"], "Internet WAN for Branch Office 5"),
-        ("USBN3-INT-02", internet_type["id"], "CenturyLink", branch_005["id"], "Backup Internet WAN for Branch Office 5"),
-        
-        # Branch Office 6
-        ("MXBN1-INT-01", internet_type["id"], "Comcast", branch_006["id"], "Internet WAN for Branch Office 6"),
-        ("MXBN1-INT-02", internet_type["id"], "AT&T", branch_006["id"], "Backup Internet WAN for Branch Office 6"),
-        
-        # Branch Office 7
-        ("UKBN2-INT-01", internet_type["id"], "Cogent", branch_007["id"], "Internet WAN for Branch Office 7"),
-        ("UKBN2-INT-02", internet_type["id"], "Level 3", branch_007["id"], "Backup Internet WAN for Branch Office 7"),
-        
-        # Branch Office 8
-        ("BRBN2-INT-01", internet_type["id"], "Zayo", branch_008["id"], "Internet WAN for Branch Office 8"),
-        ("BRBN2-INT-02", internet_type["id"], "Windstream", branch_008["id"], "Backup Internet WAN for Branch Office 8"),
-    ]
+    # Clean up existing circuit terminations and cables first
+    print("\n=== Cleaning up existing circuit terminations and cables ===")
     
-    # Create all circuits
+    # Delete existing cables
+    cables_response = requests.get(f"{NAUTOBOT_URL}/api/dcim/cables/", headers=HEADERS)
+    if cables_response.status_code == 200:
+        existing_cables = cables_response.json().get("results", [])
+        for cable in existing_cables:
+            delete_response = requests.delete(f"{NAUTOBOT_URL}/api/dcim/cables/{cable['id']}/", headers=HEADERS)
+            if delete_response.status_code == 204:
+                print(f"Deleted cable {cable['id']}")
+    
+    # Delete existing circuit terminations
+    terminations_response = requests.get(f"{NAUTOBOT_URL}/api/circuits/circuit-terminations/", headers=HEADERS)
+    if terminations_response.status_code == 200:
+        existing_terminations = terminations_response.json().get("results", [])
+        for termination in existing_terminations:
+            delete_response = requests.delete(f"{NAUTOBOT_URL}/api/circuits/circuit-terminations/{termination['id']}/", headers=HEADERS)
+            if delete_response.status_code == 204:
+                print(f"Deleted circuit termination {termination['id']}")
+    
+    # Delete ALL existing circuits (complete cleanup)
+    print("Deleting ALL existing circuits...")
+    circuits_response = requests.get(f"{NAUTOBOT_URL}/api/circuits/circuits/", headers=HEADERS)
+    if circuits_response.status_code == 200:
+        existing_circuits = circuits_response.json().get("results", [])
+        print(f"Found {len(existing_circuits)} existing circuits to delete")
+        for circuit in existing_circuits:
+            delete_response = requests.delete(f"{NAUTOBOT_URL}/api/circuits/circuits/{circuit['id']}/", headers=HEADERS)
+            if delete_response.status_code == 204:
+                print(f"Deleted circuit {circuit['id']} with CID {circuit.get('cid', 'unknown')}")
+            else:
+                print(f"Failed to delete circuit {circuit['id']}: {delete_response.status_code}")
+    else:
+        print(f"Failed to get circuits: {circuits_response.status_code}")
+    
+    # Add a small delay to ensure API has processed all deletions
+    print("Waiting for API to process deletions...")
+    import time
+    time.sleep(5)
+    
+    # Verify that all circuits have been deleted
+    print("Verifying circuit deletion...")
+    verify_response = requests.get(f"{NAUTOBOT_URL}/api/circuits/circuits/", headers=HEADERS)
+    if verify_response.status_code == 200:
+        remaining_circuits = verify_response.json().get("results", [])
+        if remaining_circuits:
+            print(f"WARNING: {len(remaining_circuits)} circuits still exist after deletion")
+            for circuit in remaining_circuits:
+                print(f"  - Circuit {circuit['id']} with CID {circuit.get('cid', 'unknown')}")
+            # Try to delete them again
+            print("Attempting to delete remaining circuits...")
+            for circuit in remaining_circuits:
+                delete_response = requests.delete(f"{NAUTOBOT_URL}/api/circuits/circuits/{circuit['id']}/", headers=HEADERS)
+                if delete_response.status_code == 204:
+                    print(f"  Deleted remaining circuit {circuit['id']}")
+                else:
+                    print(f"  Failed to delete remaining circuit {circuit['id']}: {delete_response.status_code}")
+            # Wait a bit more
+            time.sleep(3)
+        else:
+            print("All circuits successfully deleted")
+    else:
+        print(f"Failed to verify circuit deletion: {verify_response.status_code}")
+    
+    # Create all circuits with hardcoded carrier circuit IDs
     circuit_ids = {}
-    for cid, circuit_type_id, provider_name, location_id, description in campus_circuits + branch_circuits:
-        # Generate random carrier circuit ID
-        carrier_cid = generate_circuit_id()
+    circuit_configs = [
+        # Campus MPLS circuits
+        ("DALCN-MPLS-01", "CKT-DAL-MPLS-001", mpls_type["id"], "AT&T", dallas_campus["id"], "MPLS circuit for Dallas Campus"),
+        ("LOCN-MPLS-01", "CKT-LON-MPLS-001", mpls_type["id"], "Verizon", london_campus["id"], "MPLS circuit for London Campus"),
+        ("KOCN-MPLS-01", "CKT-KOR-MPLS-001", mpls_type["id"], "Cogent", korea_campus["id"], "MPLS circuit for Korea Campus"),
+        ("BRCN-MPLS-01", "CKT-BRA-MPLS-001", mpls_type["id"], "Zayo", brazil_campus["id"], "MPLS circuit for Brazil Campus"),
+        ("MXCN-MPLS-01", "CKT-MEX-MPLS-001", mpls_type["id"], "AT&T-MEX", mexico_campus["id"], "MPLS circuit for Mexico Campus"),
+        
+        # Campus Internet WAN circuits
+        ("DALCN-INT-01", "CKT-DAL-INT-001", internet_type["id"], "Comcast", dallas_campus["id"], "Internet WAN for Dallas Campus"),
+        ("LOCN-INT-01", "CKT-LON-INT-001", internet_type["id"], "CenturyLink", london_campus["id"], "Internet WAN for London Campus"),
+        ("KOCN-INT-01", "CKT-KOR-INT-001", internet_type["id"], "Level 3", korea_campus["id"], "Internet WAN for Korea Campus"),
+        ("BRCN-INT-01", "CKT-BRA-INT-001", internet_type["id"], "Windstream", brazil_campus["id"], "Internet WAN for Brazil Campus"),
+        ("MXCN-INT-01", "CKT-MEX-INT-001", internet_type["id"], "Comcast-MEX", mexico_campus["id"], "Internet WAN for Mexico Campus"),
+        
+        # Branch Internet WAN circuits (primary)
+        ("USBN1-INT-01", "CKT-USB1-INT-001", internet_type["id"], "Verizon", branch_001["id"], "Internet WAN for Branch Office 1"),
+        ("USBN2-INT-01", "CKT-USB2-INT-001", internet_type["id"], "Comcast", branch_002["id"], "Internet WAN for Branch Office 2"),
+        ("UKBN1-INT-01", "CKT-UKB1-INT-001", internet_type["id"], "Cogent", branch_003["id"], "Internet WAN for Branch Office 3"),
+        ("BRBN1-INT-01", "CKT-BRB1-INT-001", internet_type["id"], "Zayo", branch_004["id"], "Internet WAN for Branch Office 4"),
+        ("USBN3-INT-01", "CKT-USB3-INT-001", internet_type["id"], "Verizon", branch_005["id"], "Internet WAN for Branch Office 5"),
+        ("MXBN1-INT-01", "CKT-MXB1-INT-001", internet_type["id"], "Comcast", branch_006["id"], "Internet WAN for Branch Office 6"),
+        ("UKBN2-INT-01", "CKT-UKB2-INT-001", internet_type["id"], "Cogent", branch_007["id"], "Internet WAN for Branch Office 7"),
+        ("BRBN2-INT-01", "CKT-BRB2-INT-001", internet_type["id"], "Zayo", branch_008["id"], "Internet WAN for Branch Office 8"),
+        
+        # Branch Internet WAN circuits (backup)
+        ("USBN1-INT-02", "CKT-USB1-INT-002", internet_type["id"], "CenturyLink", branch_001["id"], "Backup Internet WAN for Branch Office 1"),
+        ("USBN2-INT-02", "CKT-USB2-INT-002", internet_type["id"], "AT&T", branch_002["id"], "Backup Internet WAN for Branch Office 2"),
+        ("UKBN1-INT-02", "CKT-UKB1-INT-002", internet_type["id"], "Level 3", branch_003["id"], "Backup Internet WAN for Branch Office 3"),
+        ("BRBN1-INT-02", "CKT-BRB1-INT-002", internet_type["id"], "Windstream", branch_004["id"], "Backup Internet WAN for Branch Office 4"),
+        ("USBN3-INT-02", "CKT-USB3-INT-002", internet_type["id"], "CenturyLink", branch_005["id"], "Backup Internet WAN for Branch Office 5"),
+        ("MXBN1-INT-02", "CKT-MXB1-INT-002", internet_type["id"], "AT&T", branch_006["id"], "Backup Internet WAN for Branch Office 6"),
+        ("UKBN2-INT-02", "CKT-UKB2-INT-002", internet_type["id"], "Level 3", branch_007["id"], "Backup Internet WAN for Branch Office 7"),
+        ("BRBN2-INT-02", "CKT-BRB2-INT-002", internet_type["id"], "Windstream", branch_008["id"], "Backup Internet WAN for Branch Office 8"),
+    ]
+    
+    for cid, carrier_cid, circuit_type_id, provider_name, location_id, description in circuit_configs:
         circuit = create_circuit(carrier_cid, circuit_type_id, provider_ids[provider_name], location_id, description=description)
         if circuit:
             circuit_ids[cid] = circuit["id"]
@@ -1685,66 +1920,91 @@ def seed_data():
     print("\n=== Creating Circuit Terminations ===")
     
     # Map circuits to their corresponding WAN interfaces
+    # Format: (circuit_id, device_name, interface_name, location_id)
     circuit_interface_mapping = [
-        # Campus MPLS circuits
-        ("DALCN-MPLS-01", "DALCN-WAN01-G0/0/0"),
-        ("LOCN-MPLS-01", "LOCN-WAN01-G0/0/0"),
-        ("KOCN-MPLS-01", "KOCN-WAN01-G0/0/0"),
-        ("BRCN-MPLS-01", "BRCN-WAN01-G0/0/0"),
-        ("MXCN-MPLS-01", "MXCN-WAN01-G0/0/0"),
+        # Campus MPLS circuits - connect to GigabitEthernet0/0/0 (WAN uplink to MPLS)
+        ("DALCN-MPLS-01", "DALCN-WAN01", "GigabitEthernet0/0/0", dallas_campus["id"]),
+        ("LOCN-MPLS-01", "LOCN-WAN01", "GigabitEthernet0/0/0", london_campus["id"]),
+        ("KOCN-MPLS-01", "KOCN-WAN01", "GigabitEthernet0/0/0", korea_campus["id"]),
+        ("BRCN-MPLS-01", "BRCN-WAN01", "GigabitEthernet0/0/0", brazil_campus["id"]),
+        ("MXCN-MPLS-01", "MXCN-WAN01", "GigabitEthernet0/0/0", mexico_campus["id"]),
         
-        # Campus Internet WAN circuits
-        ("DALCN-INT-01", "DALCN-WAN02-G0/0/0"),
-        ("LOCN-INT-01", "LOCN-WAN02-G0/0/0"),
-        ("KOCN-INT-01", "KOCN-WAN02-G0/0/0"),
-        ("BRCN-INT-01", "BRCN-WAN02-G0/0/0"),
-        ("MXCN-INT-01", "MXCN-WAN02-G0/0/0"),
+        # Campus Internet WAN circuits - connect to GigabitEthernet0/0/0 (WAN uplink to Internet)
+        ("DALCN-INT-01", "DALCN-WAN01", "GigabitEthernet0/0/0", dallas_campus["id"]),
+        ("LOCN-INT-01", "LOCN-WAN01", "GigabitEthernet0/0/0", london_campus["id"]),
+        ("KOCN-INT-01", "KOCN-WAN01", "GigabitEthernet0/0/0", korea_campus["id"]),
+        ("BRCN-INT-01", "BRCN-WAN01", "GigabitEthernet0/0/0", brazil_campus["id"]),
+        ("MXCN-INT-01", "MXCN-WAN01", "GigabitEthernet0/0/0", mexico_campus["id"]),
         
-        # Branch Internet WAN circuits (primary)
-        ("USBN1-INT-01", "USBN1-WAN01-E0/0"),
-        ("USBN2-INT-01", "USBN2-WAN01-E0/0"),
-        ("UKBN1-INT-01", "UKBN1-WAN01-E0/0"),
-        ("BRBN1-INT-01", "BRBN1-WAN01-E0/0"),
-        ("USBN3-INT-01", "USBN3-WAN01-E0/0"),
-        ("MXBN1-INT-01", "MXBN1-WAN01-E0/0"),
-        ("UKBN2-INT-01", "UKBN2-WAN01-E0/0"),
-        ("BRBN2-INT-01", "BRBN2-WAN01-E0/0"),
+        # Branch Internet WAN circuits (primary) - connect to Ethernet0/0 (Internet WAN)
+        ("USBN1-INT-01", "USBN1-WAN01", "Ethernet0/0", branch_001["id"]),
+        ("USBN2-INT-01", "USBN2-WAN01", "Ethernet0/0", branch_002["id"]),
+        ("UKBN1-INT-01", "UKBN1-WAN01", "Ethernet0/0", branch_003["id"]),
+        ("BRBN1-INT-01", "BRBN1-WAN01", "Ethernet0/0", branch_004["id"]),
+        ("USBN3-INT-01", "USBN3-WAN01", "Ethernet0/0", branch_005["id"]),
+        ("MXBN1-INT-01", "MXBN1-WAN01", "Ethernet0/0", branch_006["id"]),
+        ("UKBN2-INT-01", "UKBN2-WAN01", "Ethernet0/0", branch_007["id"]),
+        ("BRBN2-INT-01", "BRBN2-WAN01", "Ethernet0/0", branch_008["id"]),
         
-        # Branch Internet WAN circuits (backup)
-        ("USBN1-INT-02", "USBN1-WAN02-E0/0"),
-        ("USBN2-INT-02", "USBN2-WAN02-E0/0"),
-        ("UKBN1-INT-02", "UKBN1-WAN02-E0/0"),
-        ("BRBN1-INT-02", "BRBN1-WAN02-E0/0"),
-        ("USBN3-INT-02", "USBN3-WAN02-E0/0"),
-        ("MXBN1-INT-02", "MXBN1-WAN02-E0/0"),
-        ("UKBN2-INT-02", "UKBN2-WAN02-E0/0"),
-        ("BRBN2-INT-02", "BRBN2-WAN02-E0/0"),
+        # Branch Internet WAN circuits (backup) - connect to Ethernet0/0 (Internet WAN)
+        # For branches, we'll use the same interface since they only have one WAN interface
+        ("USBN1-INT-02", "USBN1-WAN01", "Ethernet0/0", branch_001["id"]),
+        ("USBN2-INT-02", "USBN2-WAN01", "Ethernet0/0", branch_002["id"]),
+        ("UKBN1-INT-02", "UKBN1-WAN01", "Ethernet0/0", branch_003["id"]),
+        ("BRBN1-INT-02", "BRBN1-WAN01", "Ethernet0/0", branch_004["id"]),
+        ("USBN3-INT-02", "USBN3-WAN01", "Ethernet0/0", branch_005["id"]),
+        ("MXBN1-INT-02", "MXBN1-WAN01", "Ethernet0/0", branch_006["id"]),
+        ("UKBN2-INT-02", "UKBN2-WAN01", "Ethernet0/0", branch_007["id"]),
+        ("BRBN2-INT-02", "BRBN2-WAN01", "Ethernet0/0", branch_008["id"]),
     ]
     
     termination_count = 0
-    for circuit_cid, interface_name in circuit_interface_mapping:
-        if circuit_cid in circuit_ids and interface_name in device_ids:
+    cable_count = 0
+    for circuit_cid, device_name, interface_name, location_id in circuit_interface_mapping:
+        if circuit_cid in circuit_ids and device_name in device_ids:
             # Find the interface ID
             interface_response = requests.get(
                 f"{NAUTOBOT_URL}/api/dcim/interfaces/",
-                params={"device": device_ids[interface_name], "name": interface_name.split("-")[-1]},
+                params={"device": device_ids[device_name], "name": interface_name},
                 headers=HEADERS
             )
             if interface_response.status_code == 200 and interface_response.json().get("results"):
                 interface_id = interface_response.json()["results"][0]["id"]
                 
-                # Create circuit termination
+                # Step 1: Create circuit termination
                 termination = create_circuit_termination(
                     circuit_ids[circuit_cid], 
-                    None,  # Location will be inherited from circuit
-                    interface_id,
+                    location_id,  # Use the specific location
                     "A",  # A-side termination
                     1000  # 1Gbps port speed
                 )
                 if termination:
                     termination_count += 1
+                    print(f"Successfully created termination for circuit {circuit_cid} on {device_name} {interface_name}")
+                    
+                    # Step 2: Create cable connection between circuit termination and interface
+                    cable = create_cable_connection(
+                        "circuits.circuittermination",  # termination_a_type
+                        termination["id"],              # termination_a_id
+                        "dcim.interface",               # termination_b_type
+                        interface_id                    # termination_b_id
+                    )
+                    if cable:
+                        cable_count += 1
+                        print(f"Successfully created cable connection for circuit {circuit_cid} on {device_name} {interface_name}")
+                    else:
+                        print(f"Failed to create cable connection for circuit {circuit_cid} on {device_name} {interface_name}")
+                else:
+                    print(f"Failed to create termination for circuit {circuit_cid} on {device_name} {interface_name}")
+            else:
+                print(f"Interface {interface_name} not found on device {device_name}")
+        else:
+            if circuit_cid not in circuit_ids:
+                print(f"Circuit {circuit_cid} not found")
+            if device_name not in device_ids:
+                print(f"Device {device_name} not found")
     
-    print(f"Created {termination_count} circuit terminations")
+    print(f"Created {termination_count} circuit terminations with {cable_count} cable connections")
     
     print("\n=== Data seeding completed successfully! ===")
     print(f"Created {len(devices)} devices across {8} locations")

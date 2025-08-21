@@ -32,6 +32,64 @@ query PrefixesByLocation($name: String!) {
 }
 """
 
+DEVICES_QUERY = """
+query DevicesByLocation($name: String!) {
+  devices(location: [$name]) {
+    name
+    status {
+      name
+    }
+    role {
+      name
+    }
+    device_type {
+      model
+      manufacturer {
+        name
+      }
+    }
+    platform {
+      name
+    }
+    primary_ip4 {
+      address
+    }
+    location {
+      name
+    }
+  }
+}
+"""
+
+DEVICES_BY_LOCATION_AND_ROLE_QUERY = """
+query DevicesByLocationAndRole($location: String!, $role: String!) {
+  devices(location: [$location], role: [$role]) {
+    name
+    status {
+      name
+    }
+    role {
+      name
+    }
+    device_type {
+      model
+      manufacturer {
+        name
+      }
+    }
+    platform {
+      name
+    }
+    primary_ip4 {
+      address
+    }
+    location {
+      name
+    }
+  }
+}
+"""
+
 
 class NautobotGraphQLClient:
     """Client for making GraphQL queries to Nautobot."""
@@ -116,6 +174,62 @@ class NautobotGraphQLClient:
             return prefixes
         except Exception as e:
             logger.error("Failed to get prefixes by location", location=location_name, error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_devices_by_location(self, location_name: str) -> List[Dict[str, Any]]:
+        """Get all devices for a given location name."""
+        try:
+            data = self.query(DEVICES_QUERY, {"name": location_name})
+            devices_data = data["data"]["devices"]
+            
+            devices = []
+            for device in devices_data:
+                device_data = {
+                    "name": device["name"],
+                    "status": (device["status"] or {}).get("name"),
+                    "role": (device["role"] or {}).get("name"),
+                    "device_type": {
+                        "model": (device["device_type"] or {}).get("model"),
+                        "manufacturer": (device["device_type"] or {}).get("manufacturer", {}).get("name")
+                    },
+                    "platform": (device["platform"] or {}).get("name"),
+                    "primary_ip4": (device["primary_ip4"] or {}).get("address"),
+                    "location": (device["location"] or {}).get("name"),
+                }
+                devices.append(device_data)
+            
+            logger.info("Retrieved devices by location", location=location_name, count=len(devices))
+            return devices
+        except Exception as e:
+            logger.error("Failed to get devices by location", location=location_name, error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_devices_by_location_and_role(self, location_name: str, role_name: str) -> List[Dict[str, Any]]:
+        """Get devices for a given location and role."""
+        try:
+            data = self.query(DEVICES_BY_LOCATION_AND_ROLE_QUERY, {"location": location_name, "role": role_name})
+            devices_data = data["data"]["devices"]
+            
+            devices = []
+            for device in devices_data:
+                device_data = {
+                    "name": device["name"],
+                    "status": (device["status"] or {}).get("name"),
+                    "role": (device["role"] or {}).get("name"),
+                    "device_type": {
+                        "model": (device["device_type"] or {}).get("model"),
+                        "manufacturer": (device["device_type"] or {}).get("manufacturer", {}).get("name")
+                    },
+                    "platform": (device["platform"] or {}).get("name"),
+                    "primary_ip4": (device["primary_ip4"] or {}).get("address"),
+                    "location": (device["location"] or {}).get("name"),
+                }
+                devices.append(device_data)
+            
+            logger.info("Retrieved devices by location and role", location=location_name, role=role_name, count=len(devices))
+            return devices
+        except Exception as e:
+            logger.error("Failed to get devices by location and role", location=location_name, role=role_name, error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
 

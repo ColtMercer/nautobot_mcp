@@ -1,6 +1,15 @@
 version: "3.9"
 
 services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    networks:
+      - devnet
   db:
     image: postgres:15
     environment:
@@ -63,24 +72,32 @@ services:
       GRAPHQL_PATH: ${GRAPHQL_PATH:-/api/graphql/}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MCP_API_KEY: ${MCP_API_KEY:-dev-mcp-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
       nautobot:
         condition: service_healthy
     ports:
-      - "7001:7000"
+      - "7001:7001"
     networks:
       - devnet
 
   chat-ui:
     build: ./services/chat-ui
     environment:
-      MCP_SERVERS: '[{"name":"nautobot","url":"http://mcp-nautobot:7000"}]'
+      MCP_SERVERS: '[{"name":"nautobot","url":"http://mcp-nautobot:7001"}]'
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017}
+      MONGO_DB: ${MONGO_DB:-nautobot_mcp}
     volumes:
       - ./exports:/app/exports
     ports:
       - "8501:8501"
     depends_on:
+      mongo:
+        condition: service_started
       mcp-nautobot:
         condition: service_started
     networks:
@@ -99,6 +116,7 @@ services:
 
 volumes:
   dbdata:
+  mongodata:
 
 networks:
   devnet:
