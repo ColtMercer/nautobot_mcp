@@ -83,8 +83,26 @@ The system includes a comprehensive network topology:
 ## 💬 Example Queries
 
 Try these in the chat UI:
-- "What prefixes exist at NYDC?"
-- "Show me all devices at BRCN"
+
+### **Location Queries (supports both abbreviations and full names):**
+- "What prefixes exist at NYDC?" or "What prefixes exist at New York Data Center?"
+- "Show me all devices at BRCN" or "Show me all devices at Brazil Campus?"
+- "List devices at USBN1" or "List devices at US Branch Network Branch 1"
+- "What's at London Data Center?" or "What's at LODC?"
+
+### **Device Role Queries:**
+- "Show me all WAN routers at NYDC"
+- "List all Spine switches at London Data Center"
+- "What Leaf switches are at LODC?"
+- "Show me all Branch Access switches at USBN1"
+- "List Core routers at Brazil Campus"
+- "What Campus Access switches are at DACN?"
+
+### **Combined Queries:**
+- "Show me all WAN routers at New York Data Center"
+- "List all Spine switches at LODC"
+- "What Branch Access devices are at Mexico Branch Network Branch 1?"
+- "Show me all Core routers at Korea Campus"
 
 ## 📤 Export Chat Transcripts
 
