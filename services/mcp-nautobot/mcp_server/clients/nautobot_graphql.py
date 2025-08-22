@@ -90,6 +90,35 @@ query DevicesByLocationAndRole($location: String!, $role: String!) {
 }
 """
 
+INTERFACES_BY_DEVICE_QUERY = """
+query InterfacesByDevice($device: String!) {
+  interfaces(device: [$device]) {
+    name
+    description
+    status {
+      name
+    }
+    ip_addresses {
+      address
+    }
+    device {
+      name
+    }
+    connected_circuit_termination {
+      circuit {
+        cid
+        provider {
+          name
+        }
+        circuit_type {
+          name
+        }
+      }
+    }
+  }
+}
+"""
+
 
 class NautobotGraphQLClient:
     """Client for making GraphQL queries to Nautobot."""
@@ -230,6 +259,46 @@ class NautobotGraphQLClient:
             return devices
         except Exception as e:
             logger.error("Failed to get devices by location and role", location=location_name, role=role_name, error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_interfaces_by_device(self, device_name: str) -> List[Dict[str, Any]]:
+        """Get interfaces for a given device name."""
+        try:
+            data = self.query(INTERFACES_BY_DEVICE_QUERY, {"device": device_name})
+            interfaces_data = data["data"]["interfaces"]
+            
+            interfaces = []
+            for interface in interfaces_data:
+                # Extract IP addresses
+                ip_addresses = []
+                for ip in (interface.get("ip_addresses") or []):
+                    ip_addresses.append({
+                        "address": ip.get("address"),
+                        "status": (ip.get("status") or {}).get("name")
+                    })
+                
+                interface_data = {
+                    "name": interface["name"],
+                    "description": interface.get("description"),
+                    "status": (interface["status"] or {}).get("name"),
+                    "ip_addresses": ip_addresses,
+                    "device": (interface["device"] or {}).get("name"),
+                }
+                
+                # Add circuit information if available
+                if interface.get("connected_circuit_termination"):
+                    circuit_info = interface["connected_circuit_termination"].get("circuit", {})
+                    interface_data["circuit"] = {
+                        "cid": circuit_info.get("cid"),
+                        "provider": (circuit_info.get("provider") or {}).get("name"),
+                        "circuit_type": (circuit_info.get("circuit_type") or {}).get("name")
+                    }
+                interfaces.append(interface_data)
+            
+            logger.info("Retrieved interfaces by device", device=device_name, count=len(interfaces))
+            return interfaces
+        except Exception as e:
+            logger.error("Failed to get interfaces by device", device=device_name, error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
 

@@ -16,6 +16,9 @@ from .tools.devices import (
     get_devices_by_location,
     get_devices_by_location_and_role,
 )
+from .tools.interfaces import (
+    get_interfaces_by_device,
+)
 
 # Configure structured logging
 structlog.configure(
@@ -81,6 +84,17 @@ def get_devices_by_location_and_role_tool(location_name: str, role_name: str) ->
     """
     return get_devices_by_location_and_role(location_name, role_name)
 
+def get_interfaces_by_device_tool(device_name: str) -> Dict[str, Any]:
+    """Get interfaces for a specific device.
+    
+    Args:
+        device_name: The name of the device (e.g., "BRCN-SW-01", "NYDC-RTR-01")
+        
+    Returns:
+        Dictionary containing interface data in JSON format
+    """
+    return get_interfaces_by_device(device_name)
+
 # Create Tool instances
 prefixes_tool = Tool.from_function(
     fn=get_prefixes_tool,
@@ -138,10 +152,24 @@ devices_by_location_and_role_tool = Tool.from_function(
         """
 )
 
+interfaces_by_device_tool = Tool.from_function(
+    fn=get_interfaces_by_device_tool,
+    name="get_interfaces_by_device",
+    description="""Get interfaces for a specific device. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            device_name: Name of the device (e.g., "BRCN-SW-01", "NYDC-RTR-01", "DACN-CORE-01")
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of interfaces with name, description, ip_addresses, status, type, speed, etc.)
+        """
+)
+
 # Add tools to the server
 server.add_tool(prefixes_tool)
 server.add_tool(devices_by_location_tool)
 server.add_tool(devices_by_location_and_role_tool)
+server.add_tool(interfaces_by_device_tool)
 
 # Add custom REST endpoints for chat UI compatibility
 @server.custom_route("/tools", methods=["GET"])

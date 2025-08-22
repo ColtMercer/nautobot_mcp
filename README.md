@@ -2,7 +2,59 @@
 
 A self-contained, dockerized demo that exposes a **FastMCP** server for the Nautobot OSS platform, plus a lightweight **chat UI** that can list available MCP tools, call them, and export chat transcripts.
 
-![Chat Interface Screenshot](docs/static/chat_screen_shot.png)
+## 🚀 Version 2.0: Multi-Tool & Recursive Tool Calling
+
+**Version 2.0 introduces advanced capabilities for concurrent tool execution and recursive tool chaining, enabling complex network analysis queries that automatically gather comprehensive data from multiple sources.**
+
+### 📊 Sample Conversation: Complex Network Analysis
+
+Below is a real transcript demonstrating the new capabilities:
+
+---
+
+**User Query:** *"Can you provide prefixes and devices at location BRCN and tell me what interfaces are on those devices. I am specifically looking for the WAN interfaces but want to see them all"*
+
+**System Response:** The LLM automatically executed multiple tool calls in sequence:
+
+1. **`get_prefixes_by_location_enhanced`** → Retrieved 8 network prefixes
+2. **`get_devices_by_location`** → Retrieved 6 devices (WAN, Core, Access)
+3. **`get_interfaces_by_device`** → Called recursively for each device to gather interface details
+
+**Follow-up Query:** *"Are there any circuits on those interfaces?"*
+
+**System Response:** The LLM analyzed the previous interface data and identified circuit information, showing MPLS circuits with provider details.
+
+---
+
+### 🔧 Tool Execution Details
+
+**Concurrent Tool Calls:**
+- Multiple tools executed in a single query
+- Automatic data correlation across different data sources
+- Comprehensive analysis combining prefixes, devices, and interfaces
+
+**Recursive Tool Chaining:**
+- Results from one tool inform subsequent tool calls
+- Automatic iteration through device lists to gather interface details
+- Context-aware follow-up queries using previous results
+
+**Enhanced Data Presentation:**
+- Markdown-formatted tables for better readability
+- Structured data with clear relationships
+- Circuit information with provider and type details
+
+### 📈 Version 2.0 Features
+
+✅ **Multi-Tool Execution** - Single queries can trigger multiple tool calls  
+✅ **Recursive Tool Chaining** - Tool results inform subsequent tool calls  
+✅ **Dynamic Tool Discovery** - Chat UI automatically discovers available tools  
+✅ **Enhanced Status Updates** - Real-time progress tracking during complex queries  
+✅ **Comprehensive Data Analysis** - Automatic correlation across network data sources  
+✅ **Circuit Information** - Detailed circuit data including providers and types  
+
+---
+
+*This demonstrates the power of Version 2.0's advanced tool orchestration capabilities, enabling complex network analysis queries that would previously require multiple manual steps.*
 
 ## 📋 Table of Contents
 
@@ -103,7 +155,8 @@ Open http://localhost:8501 in your browser
 1. **`get_prefixes_by_location_enhanced`** - Query prefixes by location with format options
 2. **`get_devices_by_location`** - Get devices at a specific location
 3. **`get_devices_by_location_and_role`** - Get devices by location and role
-4. **`llm_chat`** - LLM assistant that can call other MCP tools
+4. **`get_interfaces_by_device`** - Get interfaces, IP addresses, and circuit information for a device
+5. **Dynamic Tool Discovery** - Chat UI automatically discovers and presents available tools
 
 ## 📊 Demo Data Structure
 
@@ -137,6 +190,12 @@ Try these in the chat UI:
 - "List all Spine switches at LODC"
 - "What Branch Access devices are at Mexico Branch Network Branch 1?"
 - "Show me all Core routers at Korea Campus"
+
+### **Complex Analysis Queries (Version 2.0):**
+- "Can you provide prefixes and devices at location BRCN and tell me what interfaces are on those devices?"
+- "Show me all devices at NYDC and their interface configurations"
+- "What are the WAN interfaces at London Data Center and their circuit information?"
+- "Get all devices at USBN1 and show me their interfaces with IP addresses"
 
 ## 📤 Export Chat Transcripts
 

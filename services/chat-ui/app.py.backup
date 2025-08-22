@@ -3,7 +3,6 @@
 import json
 import os
 import time
-import requests
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -54,33 +53,6 @@ def execute_tool_with_status(tool_name, args, server_name, start_time, round_num
     logger.info(f"[STATUS] Tool '{tool_name}' completed in {execution_time:.2f}s (Round {round_num}, Tool {tool_index}/{total_tools})")
     
     return api_result
-
-def discover_tools_from_mcp_server(server_name):
-    """Dynamically discover tools from MCP server."""
-    try:
-        tools_response = requests.get(f"http://{server_name}:7001/tools", timeout=5)
-        if tools_response.status_code == 200:
-            mcp_tools = tools_response.json().get("tools", [])
-            tools = []
-            for tool in mcp_tools:
-                # Convert MCP tool format to OpenAI function format
-                openai_tool = {
-                    "type": "function",
-                    "function": {
-                        "name": tool["name"],
-                        "description": tool["description"],
-                        "parameters": tool["input_schema"]
-                    }
-                }
-                tools.append(openai_tool)
-            logger.info(f"Discovered {len(tools)} tools from MCP server")
-            return tools
-        else:
-            logger.warning(f"Failed to get tools from MCP server: {tools_response.status_code}")
-            return []
-    except Exception as e:
-        logger.error(f"Error discovering tools from MCP server: {e}")
-        return []
 
 try:
     from openai import OpenAI  # Optional: only used if OPENAI_API_KEY is set
@@ -305,10 +277,70 @@ def chat():
                 logger.info(f"Recent tool history: {[t.get('tool') for t in session.get('tool_history', [])[-3:]]}")
             
             messages.append({"role": "user", "content": prompt})
-            # Dynamically discover tools from MCP server
-            tools = discover_tools_from_mcp_server(server_name)
-            if not tools:
-                logger.warning("No tools discovered from MCP server, using empty tools list")
+            tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_prefixes_by_location_enhanced",
+                        "description": "Query prefixes by location with optional output format.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "location_name": {"type": "string"},
+                                "format": {"type": "string", "enum": ["json", "table", "dataframe", "csv"], "default": "json"}
+                            },
+                            "required": ["location_name"],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_devices_by_location",
+                        "description": "Query devices by location.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "location_name": {"type": "string"}
+                            },
+                            "required": ["location_name"],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_devices_by_location_and_role",
+                        "description": "Query devices by location and role.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "location_name": {"type": "string"},
+                                "role_name": {"type": "string"}
+                            },
+                            "required": ["location_name", "role_name"],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_interfaces_by_device",
+                        "description": "Query interfaces for a specific device.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "device_name": {"type": "string"}
+                            },
+                            "required": ["device_name"],
+                            "additionalProperties": False
+                        }
+                    }
+                }
+            ]
             logger.info(f"[TIMING] Making first OpenAI API call at {time.time() - start_time:.2f}s")
             first = client.chat.completions.create(
                 model=model,
