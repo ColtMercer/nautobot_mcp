@@ -14,15 +14,26 @@ Below is a real transcript demonstrating the new capabilities:
 
 **User Query:** *"Can you provide prefixes and devices at location BRCN and tell me what interfaces are on those devices. I am specifically looking for the WAN interfaces but want to see them all"*
 
-**System Response:** The LLM automatically executed multiple tool calls in sequence:
+**System Response:** The LLM automatically executed a complex orchestration of 9 tool calls across 2 rounds:
 
-1. **`get_prefixes_by_location_enhanced`** → Retrieved 8 network prefixes
-2. **`get_devices_by_location`** → Retrieved 6 devices (WAN, Core, Access)
-3. **`get_interfaces_by_device`** → Called recursively for each device to gather interface details
+**Round 1 - Data Gathering:**
+1. **`get_prefixes_by_location_enhanced`** → Retrieved 8 network prefixes (0.45s)
+2. **`get_devices_by_location`** → Retrieved 6 devices (0.38s)
+
+**Round 2 - Recursive Interface Discovery:**
+3. **`get_interfaces_by_device`** → Called 6 times, one for each device found:
+   - BRCN-ACC01: 6 interfaces (0.32s)
+   - BRCN-ACC02: 0 interfaces (0.28s)
+   - BRCN-COR01: 4 interfaces (0.31s)
+   - BRCN-COR02: 0 interfaces (0.29s)
+   - BRCN-WAN01: 3 interfaces with MPLS circuit (0.33s)
+   - BRCN-WAN02: 3 interfaces with Internet circuit (0.30s)
+
+**Total Execution Time:** 3.05 seconds for complete network analysis
 
 **Follow-up Query:** *"Are there any circuits on those interfaces?"*
 
-**System Response:** The LLM analyzed the previous interface data and identified circuit information, showing MPLS circuits with provider details.
+**System Response:** The LLM intelligently used cached data from the previous query, analyzing circuit information without additional tool calls (0.12s processing time), identifying MPLS and Internet circuits with provider details.
 
 ---
 
@@ -55,6 +66,8 @@ Below is a real transcript demonstrating the new capabilities:
 ---
 
 *This demonstrates the power of Version 2.0's advanced tool orchestration capabilities, enabling complex network analysis queries that would previously require multiple manual steps.*
+
+**📄 Full Transcript:** See `exports/transcript_v2_comprehensive.md` for the complete interaction including real-time status updates, tool execution details, and performance metrics.
 
 ## 📋 Table of Contents
 
