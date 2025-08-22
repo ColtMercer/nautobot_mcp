@@ -2,72 +2,36 @@
 
 A self-contained, dockerized demo that exposes a **FastMCP** server for the Nautobot OSS platform, plus a lightweight **chat UI** that can list available MCP tools, call them, and export chat transcripts.
 
+![Chat Interface Screenshot](docs/static/B65F4B21-4DCB-4C8C-823E-44C1CACB15CB_1_105_c.jpeg)
+
 ## 🚀 Version 2.0: Multi-Tool & Recursive Tool Calling
 
 **Version 2.0 introduces advanced capabilities for concurrent tool execution and recursive tool chaining, enabling complex network analysis queries that automatically gather comprehensive data from multiple sources.**
 
-### 📊 Sample Conversation: Complex Network Analysis
+### ✅ **Multi-Tool Execution**
+- Execute multiple tools simultaneously for comprehensive data gathering
+- Automatic coordination between different data sources
+- Intelligent query planning and execution sequencing
 
-Below is a real transcript demonstrating the new capabilities:
+### ✅ **Recursive Tool Chaining** 
+- Results from one tool automatically inform subsequent tool calls
+- Dynamic data-driven tool selection based on previous results
+- Seamless chaining of related queries for deep analysis
 
----
+### ✅ **Enhanced Data Presentation**
+- Rich markdown formatting with tables and structured data
+- Automatic highlighting of key information (WAN interfaces, circuits, etc.)
+- Comprehensive analysis with network topology understanding
 
-**User Query:** *"Can you provide prefixes and devices at location BRCN and tell me what interfaces are on those devices. I am specifically looking for the WAN interfaces but want to see them all"*
+### ✅ **Real-Time Status Updates**
+- Detailed progress tracking during tool execution
+- Performance metrics and timing information
+- Clear indication of processing stages and completion
 
-**System Response:** The LLM automatically executed a complex orchestration of 9 tool calls across 2 rounds:
-
-**Round 1 - Data Gathering:**
-1. **`get_prefixes_by_location_enhanced`** → Retrieved 8 network prefixes (0.45s)
-2. **`get_devices_by_location`** → Retrieved 6 devices (0.38s)
-
-**Round 2 - Recursive Interface Discovery:**
-3. **`get_interfaces_by_device`** → Called 6 times, one for each device found:
-   - BRCN-ACC01: 6 interfaces (0.32s)
-   - BRCN-ACC02: 0 interfaces (0.28s)
-   - BRCN-COR01: 4 interfaces (0.31s)
-   - BRCN-COR02: 0 interfaces (0.29s)
-   - BRCN-WAN01: 3 interfaces with MPLS circuit (0.33s)
-   - BRCN-WAN02: 3 interfaces with Internet circuit (0.30s)
-
-**Total Execution Time:** 3.05 seconds for complete network analysis
-
-**Follow-up Query:** *"Are there any circuits on those interfaces?"*
-
-**System Response:** The LLM intelligently used cached data from the previous query, analyzing circuit information without additional tool calls (0.12s processing time), identifying MPLS and Internet circuits with provider details.
-
----
-
-### 🔧 Tool Execution Details
-
-**Concurrent Tool Calls:**
-- Multiple tools executed in a single query
-- Automatic data correlation across different data sources
-- Comprehensive analysis combining prefixes, devices, and interfaces
-
-**Recursive Tool Chaining:**
-- Results from one tool inform subsequent tool calls
-- Automatic iteration through device lists to gather interface details
-- Context-aware follow-up queries using previous results
-
-**Enhanced Data Presentation:**
-- Markdown-formatted tables for better readability
-- Structured data with clear relationships
-- Circuit information with provider and type details
-
-### 📈 Version 2.0 Features
-
-✅ **Multi-Tool Execution** - Single queries can trigger multiple tool calls  
-✅ **Recursive Tool Chaining** - Tool results inform subsequent tool calls  
-✅ **Dynamic Tool Discovery** - Chat UI automatically discovers available tools  
-✅ **Enhanced Status Updates** - Real-time progress tracking during complex queries  
-✅ **Comprehensive Data Analysis** - Automatic correlation across network data sources  
-✅ **Circuit Information** - Detailed circuit data including providers and types  
-
----
-
-*This demonstrates the power of Version 2.0's advanced tool orchestration capabilities, enabling complex network analysis queries that would previously require multiple manual steps.*
-
-**📄 Full Transcript:** See `exports/transcript_v2_comprehensive.md` for the complete interaction including real-time status updates, tool execution details, and performance metrics.
+### ✅ **Intelligent Context Management**
+- Cached data reuse for follow-up questions
+- Context-aware responses without redundant tool calls
+- Smart analysis of previously gathered information
 
 ## 📋 Table of Contents
 
