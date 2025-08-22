@@ -38,7 +38,7 @@ cp .env.example .env
 #    - Add it to your .env file: OPENAI_API_KEY=your_openai_api_key_here
 
 # 4. Create admin user
-docker exec -it nautobot_mcp-nautobot-1 nautobot-server createsuperuser --username admin --email admin@example.com
+docker exec -it nautobot_mcp-1-nautobot-1 nautobot-server createsuperuser --username admin --email admin@example.com
 
 # 5. Get your Nautobot API token:
 #    - Go to http://localhost:8080 and log in with your username and password

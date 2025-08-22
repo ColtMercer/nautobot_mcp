@@ -125,6 +125,7 @@ def chat():
         
         # If OpenAI is configured, use it as a general-purpose LLM with function-calling to MCP tools
         use_openai = bool(os.environ.get('OPENAI_API_KEY')) and OpenAI is not None
+        logger.info(f"OpenAI API Key configured: {bool(os.environ.get('OPENAI_API_KEY'))}, OpenAI available: {OpenAI is not None}, use_openai: {use_openai}")
         assistant_response = None
         citations = []
         response_data = None
@@ -289,6 +290,12 @@ def chat():
             logger.info(f"[TIMING] First OpenAI API call completed at {time.time() - start_time:.2f}s")
             choice = first.choices[0]
             msg = choice.message
+            logger.info(f"OpenAI response - has tool calls: {bool(msg.tool_calls)}, content: {msg.content[:100] if msg.content else 'None'}")
+            
+            # Initialize assistant_response variable
+            assistant_response = None
+            citations = []
+            
             if msg.tool_calls:
                 messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
                 logger.info(f"[TIMING] Processing {len(msg.tool_calls)} tool calls at {time.time() - start_time:.2f}s")
@@ -354,14 +361,12 @@ def chat():
                 second = client.chat.completions.create(model=model, messages=messages)
                 logger.info(f"[TIMING] Second OpenAI API call completed at {time.time() - start_time:.2f}s")
                 assistant_response = second.choices[0].message.content or ""
+                logger.info(f"Tool calls completed - final response: {assistant_response[:100] if assistant_response else 'None'}")
             else:
                 # No tool calls made - use the assistant's direct response
                 assistant_response = msg.content or "I don't have any specific tools to help with that request. Please try asking about network devices, prefixes, or locations using the available tools."
                 citations = []
-        else:
-            # No tool calls made - use the assistant's direct response
-            assistant_response = msg.content or "I don't have any specific tools to help with that request. Please try asking about network devices, prefixes, or locations using the available tools."
-            citations = []
+                logger.info(f"No tool calls - using direct response: {assistant_response[:100] if assistant_response else 'None'}")
         
         # Check if the LLM requested any specific format and prepare response data
         response_data = None
@@ -396,6 +401,15 @@ def chat():
                                     }
                                 break
                         break
+        
+        # Ensure assistant_response is not None
+        if assistant_response is None:
+            if not use_openai:
+                assistant_response = "OpenAI is not configured. Please set the OPENAI_API_KEY environment variable to use this chat interface."
+                logger.warning("OpenAI not configured, using fallback message")
+            else:
+                assistant_response = "I apologize, but I encountered an issue processing your request. Please try again."
+                logger.warning("assistant_response was None, using fallback message")
         
         # Add assistant response to history
         assistant_turn = {
@@ -706,7 +720,7 @@ def get_context():
         'conversation_summary': [
             {
                 "role": msg.get("role", "unknown"),
-                "text": msg.get("text", "")[:200] + "..." if len(msg.get("text", "")) > 200 else msg.get("text", ""),
+                "text": (msg.get("text") or "")[:200] + "..." if len(msg.get("text") or "") > 200 else (msg.get("text") or ""),
                 "citations": msg.get("citations", [])
             }
             for msg in chat_history[-10:]  # Last 10 messages

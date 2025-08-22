@@ -828,6 +828,8 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${role}`;
             
+            // Ensure text is not null or undefined
+            text = text || '';
             let html = text;
             
             // Render markdown for assistant messages

@@ -126,12 +126,12 @@ devices_by_location_and_role_tool = Tool.from_function(
                 - Campuses: "DACN" or "Dallas Campus", "LOCN" or "London Campus", "KOCN" or "Korea Campus", "BRCN" or "Brazil Campus", "MXCN" or "Mexico Campus"
                 - Branch Offices: "USBN1" or "US Branch Network Branch 1", "USBN2", "MXBN1" or "Mexico Branch Network Branch 1", "MXBN2", "UKBN1" or "UK Branch Network Branch 1", "UKBN2", "BRBN1" or "Brazil Branch Network Branch 1", "BRBN2"
             role_name: Name of the device role. Available roles include:
-                - "WAN" (WAN Routers)
-                - "Core" (Core Routers)
-                - "Spine" (Spine Switches in data centers)
-                - "Leaf" (Leaf Switches in data centers)
-                - "Branch Access" (Branch Access Switches)
-                - "Campus Access" (Campus Access Switches)
+                - "WAN": Often referred to as WAN Routers or WAN devices
+                - "Core": (Core Routers)
+                - "Spine": (Spine Switches in data centers)
+                - "Leaf": (Leaf Switches in data centers)
+                - "Branch Access": (Branch Access Switches)
+                - "Campus Access": (Campus Access Switches)
 
         Returns:
             JSON object with fields: success, message, count, data (list of devices with name, status, role, device_type, platform, primary_ip4, location, description)
