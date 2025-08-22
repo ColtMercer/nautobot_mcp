@@ -479,6 +479,13 @@
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
         }
+        
+        .processing-details {
+            color: #8b949e;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+            font-style: italic;
+        }
 
         .processing-dots {
             display: inline-block;
@@ -871,7 +878,7 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function showProcessingIndicator(status = 'Processing your request') {
+        function showProcessingIndicator(status = 'Processing your request', details = '') {
             const container = document.getElementById('chatMessages');
             if (!container) {
                 return;
@@ -887,8 +894,15 @@
             indicatorDiv.className = 'processing-indicator';
             indicatorDiv.id = 'processingIndicator';
             indicatorDiv.style.display = 'block'; // Ensure it's visible
+            
+            let detailsHtml = '';
+            if (details) {
+                detailsHtml = `<div class="processing-details">${details}</div>`;
+            }
+            
             indicatorDiv.innerHTML = `
                 <div class="processing-status">${status}</div>
+                ${detailsHtml}
                 <div class="processing-dots"></div>
             `;
             container.appendChild(indicatorDiv);
@@ -909,6 +923,27 @@
             const indicator = document.getElementById('processingIndicator');
             if (indicator) {
                 indicator.remove();
+            }
+        }
+
+        function updateProcessingStatusWithDetails(status, details = '') {
+            const indicator = document.getElementById('processingIndicator');
+            if (indicator) {
+                const statusDiv = indicator.querySelector('.processing-status');
+                const detailsDiv = indicator.querySelector('.processing-details');
+                
+                if (statusDiv) {
+                    statusDiv.textContent = status;
+                }
+                
+                if (detailsDiv) {
+                    detailsDiv.textContent = details;
+                } else if (details) {
+                    const newDetailsDiv = document.createElement('div');
+                    newDetailsDiv.className = 'processing-details';
+                    newDetailsDiv.textContent = details;
+                    indicator.insertBefore(newDetailsDiv, indicator.querySelector('.processing-dots'));
+                }
             }
         }
 

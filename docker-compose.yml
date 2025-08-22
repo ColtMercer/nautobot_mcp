@@ -85,7 +85,7 @@ services:
   chat-ui:
     build: ./services/chat-ui
     environment:
-      MCP_SERVERS: '[{"name":"nautobot","url":"http://mcp-nautobot:7001"}]'
+      MCP_SERVERS: '[{"name":"mcp-nautobot","url":"http://mcp-nautobot:7001"}]'
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-gpt-4o-mini}

@@ -2,7 +2,36 @@
 
 A self-contained, dockerized demo that exposes a **FastMCP** server for the Nautobot OSS platform, plus a lightweight **chat UI** that can list available MCP tools, call them, and export chat transcripts.
 
-![Chat Interface Screenshot](docs/static/chat_screen_shot.png)
+![Chat Interface Screenshot](docs/static/6B542EE8-7B85-47E4-8885-56C49C59A59E.png)
+
+## 🚀 Version 2.0: Multi-Tool & Recursive Tool Calling
+
+**Version 2.0 introduces advanced capabilities for concurrent tool execution and recursive tool chaining, enabling complex network analysis queries that automatically gather comprehensive data from multiple sources.**
+
+### ✅ **Multi-Tool Execution**
+- Execute multiple tools simultaneously for comprehensive data gathering
+- Automatic coordination between different data sources
+- Intelligent query planning and execution sequencing
+
+### ✅ **Recursive Tool Chaining** 
+- Results from one tool automatically inform subsequent tool calls
+- Dynamic data-driven tool selection based on previous results
+- Seamless chaining of related queries for deep analysis
+
+### ✅ **Enhanced Data Presentation**
+- Rich markdown formatting with tables and structured data
+- Automatic highlighting of key information (WAN interfaces, circuits, etc.)
+- Comprehensive analysis with network topology understanding
+
+### ✅ **Real-Time Status Updates**
+- Detailed progress tracking during tool execution
+- Performance metrics and timing information
+- Clear indication of processing stages and completion
+
+### ✅ **Intelligent Context Management**
+- Cached data reuse for follow-up questions
+- Context-aware responses without redundant tool calls
+- Smart analysis of previously gathered information
 
 ## 📋 Table of Contents
 
@@ -103,7 +132,8 @@ Open http://localhost:8501 in your browser
 1. **`get_prefixes_by_location_enhanced`** - Query prefixes by location with format options
 2. **`get_devices_by_location`** - Get devices at a specific location
 3. **`get_devices_by_location_and_role`** - Get devices by location and role
-4. **`llm_chat`** - LLM assistant that can call other MCP tools
+4. **`get_interfaces_by_device`** - Get interfaces, IP addresses, and circuit information for a device
+5. **Dynamic Tool Discovery** - Chat UI automatically discovers and presents available tools
 
 ## 📊 Demo Data Structure
 
@@ -137,6 +167,12 @@ Try these in the chat UI:
 - "List all Spine switches at LODC"
 - "What Branch Access devices are at Mexico Branch Network Branch 1?"
 - "Show me all Core routers at Korea Campus"
+
+### **Complex Analysis Queries (Version 2.0):**
+- "Can you provide prefixes and devices at location BRCN and tell me what interfaces are on those devices?"
+- "Show me all devices at NYDC and their interface configurations"
+- "What are the WAN interfaces at London Data Center and their circuit information?"
+- "Get all devices at USBN1 and show me their interfaces with IP addresses"
 
 ## 📤 Export Chat Transcripts
 
