@@ -133,7 +133,11 @@ Open http://localhost:8501 in your browser
 2. **`get_devices_by_location`** - Get devices at a specific location
 3. **`get_devices_by_location_and_role`** - Get devices by location and role
 4. **`get_interfaces_by_device`** - Get interfaces, IP addresses, and circuit information for a device
-5. **Dynamic Tool Discovery** - Chat UI automatically discovers and presents available tools
+5. **`get_circuits_by_location`** - Get circuits for specific locations
+6. **`get_circuits_by_provider`** - Get circuits for specific providers
+7. **`get_locations`** - Get all available locations with hierarchy information
+8. **`get_providers`** - Get all available circuit providers
+9. **Dynamic Tool Discovery** - Chat UI automatically discovers and presents available tools
 
 ## 📊 Demo Data Structure
 
@@ -154,11 +158,19 @@ Try these in the chat UI:
 - "List devices at USBN1"
 - "What's at LODC?"
 
+### **Discovery Queries:**
+- "What locations are available in the system?"
+- "Show me all circuit providers"
+- "List all available locations with their countries and regions"
+
 ### **Circuit Queries:**
 - "Give me a list of circuits at location BRCN"
 - "Show me all circuits at NYDC and DACN"
 - "What circuits are available at LODC?"
 - "List all circuits at USBN1 and USBN2"
+- "Show me all circuits from provider Zayo"
+- "What circuits does AT&T provide?"
+- "List all circuits from Level 3"
 
 ### **Device Role Queries:**
 - "Show me all WAN routers at NYDC"
@@ -199,6 +211,13 @@ Try these in the chat UI:
 - "Give me a complete network overview of NYDC including all devices, their interfaces, and any circuits"
 - "Show me the full network topology at DACN with devices, interfaces, IP addresses, and circuits"
 - "Provide a comprehensive analysis of the LODC network including all network components"
+
+#### **Discovery-Based Analysis:**
+- "First show me all available locations, then analyze the network at the largest campus"
+- "List all providers and then show me circuits from the most common provider"
+- "What locations are available and which ones have the most devices?"
+- "Show me all providers and then get circuits from each one"
+- "First discover available locations, then get devices and circuits for each data center"
 
 #### **Troubleshooting Queries:**
 - "What circuits are connected to WAN interfaces at BRCN?"

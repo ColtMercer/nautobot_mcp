@@ -148,6 +148,59 @@ query CircuitsByLocation($location: [String]) {
 }
 """
 
+CIRCUITS_BY_PROVIDER_QUERY = """
+query CircuitsByProvider($provider: String) {
+  circuits(provider: $provider) {
+    circuit_id: cid
+    provider {
+      name
+    }
+    circuit_type {
+      name
+    }
+    circuit_terminations {
+      location {
+        name
+      }
+      connected_interface {
+        name
+        device {
+          name
+          role {
+            name
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+PROVIDERS_QUERY = """
+query CircuitsProviders {
+  providers {
+    name
+  }
+}
+"""
+
+LOCATIONS_QUERY = """
+query Locations {
+  locations(location_type: ["Campus", "Branch", "Data Center"]) {
+    name
+    location_type {
+      name
+    }
+    parent {
+      country: name
+      parent {
+        region: name
+      }
+    }
+  }
+}
+"""
+
 
 class NautobotGraphQLClient:
     """Client for making GraphQL queries to Nautobot."""
@@ -366,6 +419,84 @@ class NautobotGraphQLClient:
             return circuits
         except Exception as e:
             logger.error("Failed to get circuits by location", locations=location_list, error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_circuits_by_provider(self, provider_name: str) -> List[Dict[str, Any]]:
+        """Get circuits for a given provider name."""
+        try:
+            data = self.query(CIRCUITS_BY_PROVIDER_QUERY, {"provider": provider_name})
+            circuits_data = data["data"]["circuits"]
+            
+            circuits = []
+            for circuit in circuits_data:
+                circuit_data = {
+                    "circuit_id": circuit.get("circuit_id"),
+                    "provider": (circuit.get("provider") or {}).get("name"),
+                    "circuit_type": (circuit.get("circuit_type") or {}).get("name"),
+                    "terminations": []
+                }
+                
+                # Add circuit terminations
+                for termination in (circuit.get("circuit_terminations") or []):
+                    term_data = {
+                        "location": (termination.get("location") or {}).get("name"),
+                        "connected_interface": {
+                            "name": (termination.get("connected_interface") or {}).get("name"),
+                            "device": {
+                                "name": (termination.get("connected_interface") or {}).get("device", {}).get("name"),
+                                "role": (termination.get("connected_interface") or {}).get("device", {}).get("role", {}).get("name")
+                            }
+                        }
+                    }
+                    circuit_data["terminations"].append(term_data)
+                
+                circuits.append(circuit_data)
+            
+            logger.info("Retrieved circuits by provider", provider_name=provider_name, count=len(circuits))
+            return circuits
+        except Exception as e:
+            logger.error("Failed to get circuits by provider", provider_name=provider_name, error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_providers(self) -> List[Dict[str, Any]]:
+        """Get all circuit providers."""
+        try:
+            data = self.query(PROVIDERS_QUERY)
+            providers_data = data["data"]["providers"]
+            
+            providers = []
+            for provider in providers_data:
+                provider_data = {
+                    "name": provider.get("name")
+                }
+                providers.append(provider_data)
+            
+            logger.info("Retrieved all providers", count=len(providers))
+            return providers
+        except Exception as e:
+            logger.error("Failed to get providers", error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_locations(self) -> List[Dict[str, Any]]:
+        """Get all locations with their hierarchy information."""
+        try:
+            data = self.query(LOCATIONS_QUERY)
+            locations_data = data["data"]["locations"]
+            
+            locations = []
+            for location in locations_data:
+                location_data = {
+                    "name": location.get("name"),
+                    "location_type": (location.get("location_type") or {}).get("name"),
+                    "country": (location.get("parent") or {}).get("country"),
+                    "region": (location.get("parent") or {}).get("parent", {}).get("region")
+                }
+                locations.append(location_data)
+            
+            logger.info("Retrieved all locations", count=len(locations))
+            return locations
+        except Exception as e:
+            logger.error("Failed to get locations", error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
 

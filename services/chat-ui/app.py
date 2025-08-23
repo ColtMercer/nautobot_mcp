@@ -224,7 +224,7 @@ def chat():
                 "7. For comprehensive analysis, gather data from multiple sources before providing insights "
                 "8. You can chain tool calls - get devices first, then get their interfaces for detailed analysis "
                 "9. Use exact location codes (e.g., 'BRCN', 'NYDC') - full names will fail "
-                "Available tools: get_prefixes_by_location_enhanced, get_devices_by_location, get_devices_by_location_and_role, get_interfaces_by_device, get_circuits_by_location"
+                "Available tools: get_prefixes_by_location_enhanced, get_devices_by_location, get_devices_by_location_and_role, get_interfaces_by_device, get_circuits_by_location, get_locations, get_providers, get_circuits_by_provider"
             )
             # Build conversation history for OpenAI function calling
             messages = [{"role": "system", "content": system_prompt}]

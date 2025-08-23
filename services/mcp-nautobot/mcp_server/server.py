@@ -22,6 +22,13 @@ from .tools.interfaces import (
 from .tools.circuits import (
     get_circuits_by_location,
 )
+from .tools.discovery import (
+    get_locations_tool,
+    get_providers_tool,
+)
+from .tools.circuits_by_provider import (
+    get_circuits_by_provider_tool,
+)
 
 # Configure structured logging
 structlog.configure(
@@ -108,6 +115,33 @@ def get_circuits_by_location_tool(location_names: List[str]) -> Dict[str, Any]:
         Dictionary containing circuit data in JSON format
     """
     return get_circuits_by_location(location_names)
+
+def get_locations_wrapper() -> Dict[str, Any]:
+    """Get all available locations with hierarchy information.
+    
+    Returns:
+        Dictionary containing location data in JSON format
+    """
+    return get_locations_tool()
+
+def get_providers_wrapper() -> Dict[str, Any]:
+    """Get all available circuit providers.
+    
+    Returns:
+        Dictionary containing provider data in JSON format
+    """
+    return get_providers_tool()
+
+def get_circuits_by_provider_wrapper(provider_name: str) -> Dict[str, Any]:
+    """Get circuits for a specific provider.
+    
+    Args:
+        provider_name: The name of the provider (e.g., "Zayo", "Level 3")
+        
+    Returns:
+        Dictionary containing circuit data in JSON format
+    """
+    return get_circuits_by_provider_tool(provider_name)
 
 # Create Tool instances
 prefixes_tool = Tool.from_function(
@@ -203,12 +237,54 @@ circuits_by_location_tool = Tool.from_function(
         """
 )
 
+locations_tool = Tool.from_function(
+    fn=get_locations_wrapper,
+    name="get_locations",
+    description="""Get all available locations with hierarchy information. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            None - This tool takes no arguments.
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of locations with name, location_type, country, region)
+        """
+)
+
+providers_tool = Tool.from_function(
+    fn=get_providers_wrapper,
+    name="get_providers",
+    description="""Get all available circuit providers. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            None - This tool takes no arguments.
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of providers with name)
+        """
+)
+
+circuits_by_provider_tool = Tool.from_function(
+    fn=get_circuits_by_provider_wrapper,
+    name="get_circuits_by_provider",
+    description="""Get circuits by provider name. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            provider_name: The EXACT provider name as it appears in Nautobot (e.g., "Zayo", "Level 3", "AT&T")
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of circuits with circuit_id, provider, circuit_type, terminations)
+        """
+)
+
 # Add tools to the server
 server.add_tool(prefixes_tool)
 server.add_tool(devices_by_location_tool)
 server.add_tool(devices_by_location_and_role_tool)
 server.add_tool(interfaces_by_device_tool)
 server.add_tool(circuits_by_location_tool)
+server.add_tool(locations_tool)
+server.add_tool(providers_tool)
+server.add_tool(circuits_by_provider_tool)
 
 # Add custom REST endpoints for chat UI compatibility
 @server.custom_route("/tools", methods=["GET"])
