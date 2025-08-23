@@ -148,31 +148,63 @@ The system includes a comprehensive network topology:
 
 Try these in the chat UI:
 
-### **Location Queries (supports both abbreviations and full names):**
-- "What prefixes exist at NYDC?" or "What prefixes exist at New York Data Center?"
-- "Show me all devices at BRCN" or "Show me all devices at Brazil Campus?"
-- "List devices at USBN1" or "List devices at US Branch Network Branch 1"
-- "What's at London Data Center?" or "What's at LODC?"
+### **Basic Location Queries (Use exact location codes only):**
+- "What prefixes exist at NYDC?"
+- "Show me all devices at BRCN"
+- "List devices at USBN1"
+- "What's at LODC?"
+
+### **Circuit Queries:**
+- "Give me a list of circuits at location BRCN"
+- "Show me all circuits at NYDC and DACN"
+- "What circuits are available at LODC?"
+- "List all circuits at USBN1 and USBN2"
 
 ### **Device Role Queries:**
 - "Show me all WAN routers at NYDC"
-- "List all Spine switches at London Data Center"
-- "What Leaf switches are at LODC?"
-- "Show me all Branch Access switches at USBN1"
-- "List Core routers at Brazil Campus"
-- "What Campus Access switches are at DACN?"
-
-### **Combined Queries:**
-- "Show me all WAN routers at New York Data Center"
 - "List all Spine switches at LODC"
-- "What Branch Access devices are at Mexico Branch Network Branch 1?"
-- "Show me all Core routers at Korea Campus"
+- "What Leaf switches are at BRCN?"
+- "Show me all Branch Access switches at USBN1"
+- "List Core routers at DACN"
+- "What Campus Access switches are at MXCN?"
 
-### **Complex Analysis Queries (Version 2.0):**
+### **Interface Queries:**
+- "What interfaces are on BRCN-WAN01?"
+- "Show me all interfaces on NYDC-CORE-01"
+- "List interfaces on DACN-ACC01"
+- "What are the WAN interfaces on LODC-SPINE-01?"
+
+### **Complex Analysis Queries (Version 2.0 - Multi-Tool & Recursive):**
+
+#### **Concurrent Tool Execution:**
 - "Can you provide prefixes and devices at location BRCN and tell me what interfaces are on those devices?"
 - "Show me all devices at NYDC and their interface configurations"
-- "What are the WAN interfaces at London Data Center and their circuit information?"
+- "What are the WAN interfaces at LODC and their circuit information?"
 - "Get all devices at USBN1 and show me their interfaces with IP addresses"
+
+#### **Recursive Tool Chaining:**
+- "Show me all WAN routers at BRCN and then get the interfaces for each one"
+- "List all Core devices at NYDC and show me their interface details"
+- "Get all devices at DACN, then show me the interfaces for each device"
+- "Find all WAN routers at LODC and display their interface configurations"
+
+#### **Cross-Location Analysis:**
+- "Compare the WAN routers at BRCN and NYDC - show me their interfaces and circuits"
+- "Get all Core devices at DACN and LODC and show their interface configurations"
+- "Show me all circuits at BRCN, NYDC, and DACN"
+- "Compare the network topology between USBN1 and USBN2 - devices, interfaces, and circuits"
+
+#### **Advanced Network Analysis:**
+- "Analyze the network at BRCN: show me prefixes, devices, interfaces, and circuits"
+- "Give me a complete network overview of NYDC including all devices, their interfaces, and any circuits"
+- "Show me the full network topology at DACN with devices, interfaces, IP addresses, and circuits"
+- "Provide a comprehensive analysis of the LODC network including all network components"
+
+#### **Troubleshooting Queries:**
+- "What circuits are connected to WAN interfaces at BRCN?"
+- "Show me all interfaces with IP addresses at NYDC"
+- "List all devices at DACN that have circuit connections"
+- "Find all WAN routers at LODC and show their circuit information"
 
 ## 📤 Export Chat Transcripts
 

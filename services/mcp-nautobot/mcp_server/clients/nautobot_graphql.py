@@ -1,7 +1,7 @@
 """Nautobot GraphQL client for making queries."""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 import structlog
@@ -120,8 +120,8 @@ query InterfacesByDevice($device: String!) {
 """
 
 CIRCUITS_BY_LOCATION_QUERY = """
-query CircuitsByLocation($location: String!) {
-  circuit_terminations(location: [$location]) {
+query CircuitsByLocation($location: [String]) {
+  circuit_terminations(location: $location) {
     term_side
     location {
       name
@@ -330,10 +330,16 @@ class NautobotGraphQLClient:
             logger.error("Failed to get interfaces by device", device=device_name, error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
-    def get_circuits_by_location(self, location_name: str) -> List[Dict[str, Any]]:
-        """Get circuits for a given location name."""
+    def get_circuits_by_location(self, location_names: Union[str, List[str]]) -> List[Dict[str, Any]]:
+        """Get circuits for given location name(s)."""
         try:
-            data = self.query(CIRCUITS_BY_LOCATION_QUERY, {"location": location_name})
+            # Convert single location to list if needed
+            if isinstance(location_names, str):
+                location_list = [location_names]
+            else:
+                location_list = location_names
+            
+            data = self.query(CIRCUITS_BY_LOCATION_QUERY, {"location": location_list})
             circuit_terminations_data = data["data"]["circuit_terminations"]
             
             circuits = []
@@ -356,10 +362,10 @@ class NautobotGraphQLClient:
                 }
                 circuits.append(circuit_data)
             
-            logger.info("Retrieved circuits by location", location=location_name, count=len(circuits))
+            logger.info("Retrieved circuits by location", locations=location_list, count=len(circuits))
             return circuits
         except Exception as e:
-            logger.error("Failed to get circuits by location", location=location_name, error=str(e))
+            logger.error("Failed to get circuits by location", locations=location_list, error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
 

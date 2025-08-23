@@ -33,10 +33,25 @@ def get_circuits_by_location(location_names: List[str]) -> Dict[str, Any]:
 
         if not all_circuits:
             logger.info("No circuits found for any location", locations=location_names)
-            return {"result": {"count": 0, "circuits": []}}
+            return {
+                "success": True,
+                "message": f"No circuits found for locations {location_names}",
+                "data": [],
+                "count": 0
+            }
 
         logger.info("Retrieved circuits for all locations", locations=location_names, total_count=len(all_circuits))
-        return {"result": {"count": len(all_circuits), "circuits": all_circuits}}
+        return {
+            "success": True,
+            "message": f"Found {len(all_circuits)} circuits for locations {location_names}",
+            "count": len(all_circuits),
+            "data": all_circuits
+        }
     except Exception as e:
         logger.error("Failed to get circuits by location", locations=location_names, error=str(e))
-        return {"error": f"Failed to retrieve circuits for locations {location_names}: {e}"}
+        return {
+            "success": False,
+            "error": f"Failed to retrieve circuits for locations {location_names}: {e}",
+            "data": [],
+            "count": 0
+        }

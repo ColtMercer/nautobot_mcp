@@ -46,6 +46,14 @@ def execute_tool_with_status(tool_name, args, server_name, start_time, round_num
         api_result = invoke_tool_on_server(server_name, tool_name, args)
         logger.info(f"[STATUS] Interface query completed for '{device_name}' - found {api_result.get('result', {}).get('count', 0)} interfaces")
         
+    elif tool_name == 'get_circuits_by_location':
+        location_names = args.get('location_names', [])
+        logger.info(f"[STATUS] Querying circuits for locations: {location_names}")
+        
+        api_result = invoke_tool_on_server(server_name, tool_name, args)
+        
+        logger.info(f"[STATUS] Circuit query completed for locations {location_names} - found {api_result.get('result', {}).get('count', 0)} circuits")
+        
     else:
         logger.info(f"[STATUS] Executing unknown tool: {tool_name}")
         api_result = {"error": f"Unknown tool {tool_name}"}
@@ -207,15 +215,16 @@ def chat():
                 "You are a helpful general-purpose assistant with access to Nautobot network data tools. "
                 "You can call multiple MCP tools in sequence to gather comprehensive information. "
                 "IMPORTANT GUIDELINES: "
-                "1. For complex questions, use multiple tools to gather different types of data (devices, prefixes, etc.) "
+                "1. For complex questions, use multiple tools to gather different types of data (devices, prefixes, circuits, etc.) "
                 "2. You can chain tool calls - use results from one tool to inform subsequent tool calls "
                 "3. Always use conversation history to resolve pronouns and follow-ups "
                 "4. If the user asks to reformat or export 'that' or 'those results', use the most recent relevant results "
                 "5. Use markdown formatting for better readability with proper table syntax "
-                "6. When analyzing network data, consider relationships between devices, prefixes, and locations "
+                "6. When analyzing network data, consider relationships between devices, prefixes, circuits, and locations "
                 "7. For comprehensive analysis, gather data from multiple sources before providing insights "
                 "8. You can chain tool calls - get devices first, then get their interfaces for detailed analysis "
-                "Available tools: get_prefixes_by_location_enhanced, get_devices_by_location, get_devices_by_location_and_role, get_interfaces_by_device"
+                "9. Use exact location codes (e.g., 'BRCN', 'NYDC') - full names will fail "
+                "Available tools: get_prefixes_by_location_enhanced, get_devices_by_location, get_devices_by_location_and_role, get_interfaces_by_device, get_circuits_by_location"
             )
             # Build conversation history for OpenAI function calling
             messages = [{"role": "system", "content": system_prompt}]
@@ -353,6 +362,7 @@ def chat():
                         
                         # Store tool call and result for future reference
                         tool_result = api_result.get('result', api_result)
+                        
                         persisted = {
                             "tool": name,
                             "args": args,

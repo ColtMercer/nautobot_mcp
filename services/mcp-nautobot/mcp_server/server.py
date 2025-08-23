@@ -116,10 +116,12 @@ prefixes_tool = Tool.from_function(
     description="""Get prefixes by location. Returns raw JSON only (LLM handles formatting/analysis).
 
         Args:
-            location_name: Name of the location. Supports both full names and abbreviations:
-                - Data Centers: "NYDC" or "New York Data Center", "LODC" or "London Data Center"
-                - Campuses: "DACN" or "Dallas Campus", "LOCN" or "London Campus", "KOCN" or "Korea Campus", "BRCN" or "Brazil Campus", "MXCN" or "Mexico Campus"
-                - Branch Offices: "USBN1" or "US Branch Network Branch 1", "USBN2", "MXBN1" or "Mexico Branch Network Branch 1", "MXBN2", "UKBN1" or "UK Branch Network Branch 1", "UKBN2", "BRBN1" or "Brazil Branch Network Branch 1", "BRBN2"
+            location_name: The EXACT location name as it appears in Nautobot. Use short codes only:
+                - Data Centers: "NYDC", "LODC"
+                - Campuses: "DACN", "LOCN", "KOCN", "BRCN", "MXCN"
+                - Branch Offices: "USBN1", "USBN2", "MXBN1", "MXBN2", "UKBN1", "UKBN2", "BRBN1", "BRBN2"
+                
+                IMPORTANT: Use exact short location codes only. Full names like "Brazil Branch Network Branch 1" will fail.
             format: Ignored. Always returns JSON.
 
         Returns:
@@ -133,10 +135,12 @@ devices_by_location_tool = Tool.from_function(
     description="""Get devices by location. Returns raw JSON only (LLM handles formatting/analysis).
 
         Args:
-            location_name: Name of the location. Supports both full names and abbreviations:
-                - Data Centers: "NYDC" or "New York Data Center", "LODC" or "London Data Center"
-                - Campuses: "DACN" or "Dallas Campus", "LOCN" or "London Campus", "KOCN" or "Korea Campus", "BRCN" or "Brazil Campus", "MXCN" or "Mexico Campus"
-                - Branch Offices: "USBN1" or "US Branch Network Branch 1", "USBN2", "MXBN1" or "Mexico Branch Network Branch 1", "MXBN2", "UKBN1" or "UK Branch Network Branch 1", "UKBN2", "BRBN1" or "Brazil Branch Network Branch 1", "BRBN2"
+            location_name: The EXACT location name as it appears in Nautobot. Use short codes only:
+                - Data Centers: "NYDC", "LODC"
+                - Campuses: "DACN", "LOCN", "KOCN", "BRCN", "MXCN"
+                - Branch Offices: "USBN1", "USBN2", "MXBN1", "MXBN2", "UKBN1", "UKBN2", "BRBN1", "BRBN2"
+                
+                IMPORTANT: Use exact short location codes only. Full names like "Brazil Branch Network Branch 1" will fail.
 
         Returns:
             JSON object with fields: success, message, count, data (list of devices with name, status, role, device_type, platform, primary_ip4, location, description)
@@ -149,10 +153,12 @@ devices_by_location_and_role_tool = Tool.from_function(
     description="""Get devices by location and role. Returns raw JSON only (LLM handles formatting/analysis).
 
         Args:
-            location_name: Name of the location. Supports both full names and abbreviations:
-                - Data Centers: "NYDC" or "New York Data Center", "LODC" or "London Data Center"
-                - Campuses: "DACN" or "Dallas Campus", "LOCN" or "London Campus", "KOCN" or "Korea Campus", "BRCN" or "Brazil Campus", "MXCN" or "Mexico Campus"
-                - Branch Offices: "USBN1" or "US Branch Network Branch 1", "USBN2", "MXBN1" or "Mexico Branch Network Branch 1", "MXBN2", "UKBN1" or "UK Branch Network Branch 1", "UKBN2", "BRBN1" or "Brazil Branch Network Branch 1", "BRBN2"
+            location_name: The EXACT location name as it appears in Nautobot. Use short codes only:
+                - Data Centers: "NYDC", "LODC"
+                - Campuses: "DACN", "LOCN", "KOCN", "BRCN", "MXCN"
+                - Branch Offices: "USBN1", "USBN2", "MXBN1", "MXBN2", "UKBN1", "UKBN2", "BRBN1", "BRBN2"
+                
+                IMPORTANT: Use exact short location codes only. Full names like "Brazil Branch Network Branch 1" will fail.
             role_name: Name of the device role. Available roles include:
                 - "WAN": Often referred to as WAN Routers or WAN devices
                 - "Core": (Core Routers)
@@ -185,10 +191,12 @@ circuits_by_location_tool = Tool.from_function(
     description="""Get circuits by location names. Returns raw JSON only (LLM handles formatting/analysis).
 
         Args:
-            location_names: List of location names. Supports both full names and abbreviations:
-                - Data Centers: "NYDC" or "New York Data Center", "LODC" or "London Data Center"
-                - Campuses: "DACN" or "Dallas Campus", "LOCN" or "London Campus", "KOCN" or "Korea Campus", "BRCN" or "Brazil Campus", "MXCN" or "Mexico Campus"
-                - Branch Offices: "USBN1" or "US Branch Network Branch 1", "USBN2", "MXBN1" or "Mexico Branch Network Branch 1", "MXBN2", "UKBN1" or "UK Branch Network Branch 1", "UKBN2", "BRBN1" or "Brazil Branch Network Branch 1", "BRBN2"
+            location_names: List of EXACT location names as they appear in Nautobot. Use short codes only:
+                - Data Centers: "NYDC", "LODC"
+                - Campuses: "DACN", "LOCN", "KOCN", "BRCN", "MXCN"
+                - Branch Offices: "USBN1", "USBN2", "MXBN1", "MXBN2", "UKBN1", "UKBN2", "BRBN1", "BRBN2"
+                
+                IMPORTANT: Use exact short location codes only. Full names like "Brazil Branch Network Branch 1" will fail.
 
         Returns:
             JSON object with fields: success, message, count, data (list of circuits with term_side, location, connected_interface, circuit details)
