@@ -119,6 +119,35 @@ query InterfacesByDevice($device: String!) {
 }
 """
 
+CIRCUITS_BY_LOCATION_QUERY = """
+query CircuitsByLocation($location: String!) {
+  circuit_terminations(location: [$location]) {
+    term_side
+    location {
+      name
+    }
+    connected_interface {
+      name
+      device {
+        name
+        role {
+          name
+        }
+      }
+    }
+    circuit {
+      cid
+      provider {
+        name
+      }
+      circuit_type {
+        name
+      }
+    }
+  }
+}
+"""
+
 
 class NautobotGraphQLClient:
     """Client for making GraphQL queries to Nautobot."""
@@ -299,6 +328,38 @@ class NautobotGraphQLClient:
             return interfaces
         except Exception as e:
             logger.error("Failed to get interfaces by device", device=device_name, error=str(e))
+            raise RuntimeError(f"GraphQL request failed: {e}")
+
+    def get_circuits_by_location(self, location_name: str) -> List[Dict[str, Any]]:
+        """Get circuits for a given location name."""
+        try:
+            data = self.query(CIRCUITS_BY_LOCATION_QUERY, {"location": location_name})
+            circuit_terminations_data = data["data"]["circuit_terminations"]
+            
+            circuits = []
+            for termination in circuit_terminations_data:
+                circuit_data = {
+                    "term_side": termination.get("term_side"),
+                    "location": (termination.get("location") or {}).get("name"),
+                    "connected_interface": {
+                        "name": (termination.get("connected_interface") or {}).get("name"),
+                        "device": {
+                            "name": (termination.get("connected_interface") or {}).get("device", {}).get("name"),
+                            "role": (termination.get("connected_interface") or {}).get("device", {}).get("role", {}).get("name")
+                        }
+                    },
+                    "circuit": {
+                        "cid": (termination.get("circuit") or {}).get("cid"),
+                        "provider": (termination.get("circuit") or {}).get("provider", {}).get("name"),
+                        "circuit_type": (termination.get("circuit") or {}).get("circuit_type", {}).get("name")
+                    }
+                }
+                circuits.append(circuit_data)
+            
+            logger.info("Retrieved circuits by location", location=location_name, count=len(circuits))
+            return circuits
+        except Exception as e:
+            logger.error("Failed to get circuits by location", location=location_name, error=str(e))
             raise RuntimeError(f"GraphQL request failed: {e}")
 
 

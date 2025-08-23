@@ -19,6 +19,9 @@ from .tools.devices import (
 from .tools.interfaces import (
     get_interfaces_by_device,
 )
+from .tools.circuits import (
+    get_circuits_by_location,
+)
 
 # Configure structured logging
 structlog.configure(
@@ -95,6 +98,17 @@ def get_interfaces_by_device_tool(device_name: str) -> Dict[str, Any]:
     """
     return get_interfaces_by_device(device_name)
 
+def get_circuits_by_location_tool(location_names: List[str]) -> Dict[str, Any]:
+    """Get circuits for specific locations.
+    
+    Args:
+        location_names: List of location names (e.g., ["BRCN", "NYDC", "LODC"])
+        
+    Returns:
+        Dictionary containing circuit data in JSON format
+    """
+    return get_circuits_by_location(location_names)
+
 # Create Tool instances
 prefixes_tool = Tool.from_function(
     fn=get_prefixes_tool,
@@ -165,11 +179,28 @@ interfaces_by_device_tool = Tool.from_function(
         """
 )
 
+circuits_by_location_tool = Tool.from_function(
+    fn=get_circuits_by_location_tool,
+    name="get_circuits_by_location",
+    description="""Get circuits by location names. Returns raw JSON only (LLM handles formatting/analysis).
+
+        Args:
+            location_names: List of location names. Supports both full names and abbreviations:
+                - Data Centers: "NYDC" or "New York Data Center", "LODC" or "London Data Center"
+                - Campuses: "DACN" or "Dallas Campus", "LOCN" or "London Campus", "KOCN" or "Korea Campus", "BRCN" or "Brazil Campus", "MXCN" or "Mexico Campus"
+                - Branch Offices: "USBN1" or "US Branch Network Branch 1", "USBN2", "MXBN1" or "Mexico Branch Network Branch 1", "MXBN2", "UKBN1" or "UK Branch Network Branch 1", "UKBN2", "BRBN1" or "Brazil Branch Network Branch 1", "BRBN2"
+
+        Returns:
+            JSON object with fields: success, message, count, data (list of circuits with term_side, location, connected_interface, circuit details)
+        """
+)
+
 # Add tools to the server
 server.add_tool(prefixes_tool)
 server.add_tool(devices_by_location_tool)
 server.add_tool(devices_by_location_and_role_tool)
 server.add_tool(interfaces_by_device_tool)
+server.add_tool(circuits_by_location_tool)
 
 # Add custom REST endpoints for chat UI compatibility
 @server.custom_route("/tools", methods=["GET"])
