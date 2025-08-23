@@ -149,7 +149,7 @@ query CircuitsByLocation($location: [String]) {
 """
 
 CIRCUITS_BY_PROVIDER_QUERY = """
-query CircuitsByProvider($provider: String) {
+query CircuitsByProvider($provider: [String]) {
   circuits(provider: $provider) {
     circuit_id: cid
     provider {
@@ -424,7 +424,7 @@ class NautobotGraphQLClient:
     def get_circuits_by_provider(self, provider_name: str) -> List[Dict[str, Any]]:
         """Get circuits for a given provider name."""
         try:
-            data = self.query(CIRCUITS_BY_PROVIDER_QUERY, {"provider": provider_name})
+            data = self.query(CIRCUITS_BY_PROVIDER_QUERY, {"provider": [provider_name]})
             circuits_data = data["data"]["circuits"]
             
             circuits = []

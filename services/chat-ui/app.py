@@ -54,6 +54,22 @@ def execute_tool_with_status(tool_name, args, server_name, start_time, round_num
         
         logger.info(f"[STATUS] Circuit query completed for locations {location_names} - found {api_result.get('result', {}).get('count', 0)} circuits")
         
+    elif tool_name == 'get_locations':
+        logger.info(f"[STATUS] Querying all available locations")
+        api_result = invoke_tool_on_server(server_name, tool_name, args)
+        logger.info(f"[STATUS] Locations query completed - found {api_result.get('result', {}).get('count', 0)} locations")
+        
+    elif tool_name == 'get_providers':
+        logger.info(f"[STATUS] Querying all available providers")
+        api_result = invoke_tool_on_server(server_name, tool_name, args)
+        logger.info(f"[STATUS] Providers query completed - found {api_result.get('result', {}).get('count', 0)} providers")
+        
+    elif tool_name == 'get_circuits_by_provider':
+        provider_name = args.get('provider_name', '')
+        logger.info(f"[STATUS] Querying circuits for provider '{provider_name}'")
+        api_result = invoke_tool_on_server(server_name, tool_name, args)
+        logger.info(f"[STATUS] Circuits by provider query completed for '{provider_name}' - found {api_result.get('result', {}).get('count', 0)} circuits")
+        
     else:
         logger.info(f"[STATUS] Executing unknown tool: {tool_name}")
         api_result = {"error": f"Unknown tool {tool_name}"}
